@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>우리 가계부</title>
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link href="https://hangeul.pstatic.net/hangeul_static/css/maru-buri.css" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'MaruBuri', 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #D8DBDF;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  button, input { font-family: inherit; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="budget-screens.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "husbandName": "남편",
+  "wifeName": "아내",
+  "daysTogether": "1114"
+}/*EDITMODE-END*/;
+
+// ── Tab icons (SVG paths) ─────────────────────────────────────────
+const TAB_ICONS = {
+  home:    'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
+  cal:     'M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11zM7 10h5v5H7z',
+  ledger:  'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h8v2H8v-2zm0 4h5v2H8v-2zm0-8h3v2H8V9z',
+  asset:   'M3.5 18.5l6-8 4 5.5 2.5-3 4.5 5.5H3.5zM22 3H2v18h20V3zm-2 16H4V5h16v14z',
+  fixed:   'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z',
+};
+
+function TabIcon({ d, size=22, color }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+// ── Tab Bar ───────────────────────────────────────────────────────
+function TabBar({ tab, setTab, onAdd }) {
+  const tabs = [
+    { id:'home',  label:'홈',    icon:'home'  },
+    { id:'cal',   label:'달력',  icon:'cal'   },
+    { id:'stats', label:'통계',  icon:'asset' },
+    { id:'fixed', label:'고정비', icon:'fixed' },
+  ];
+  return (
+    <div style={{ display:'flex', background:'white',
+      borderTop:'1px solid #E5E8EB', paddingBottom:6, flexShrink:0, position:'relative' }}>
+      {tabs.map(t => {
+        const active = tab === t.id;
+        return (
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+              justifyContent:'center', gap:3, padding:'8px 0 3px',
+              border:'none', background:'none', cursor:'pointer' }}>
+            <TabIcon d={TAB_ICONS[t.icon]} size={20}
+              color={active ? '#191F28' : '#C4C9D1'} />
+            <span style={{ fontSize:10, fontWeight: active ? 700 : 500,
+              color: active ? '#191F28' : '#C4C9D1', letterSpacing:-0.2 }}>
+              {t.label}
+            </span>
+            {active && <div style={{ width:16, height:2.5, borderRadius:1.5,
+              background:'#191F28', marginTop:1 }} />}
+          </button>
+        );
+      })}
+      {/* FAB */}
+      <button onClick={onAdd}
+        style={{ position:'absolute', right:16, bottom:58,
+          width:46, height:46, borderRadius:'50%', background:'#191F28',
+          border:'none', color:'white', display:'flex',
+          alignItems:'center', justifyContent:'center', cursor:'pointer',
+          boxShadow:'0 4px 14px rgba(0,0,0,0.28)' }}>
+        <svg width={20} height={20} viewBox="0 0 24 24" fill="white">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────
+function App() {
+  const [tab, setTab]         = useState('home');
+  const [txs, setTxs]         = useState(INITIAL_TXS);
+  const [showAdd, setShowAdd] = useState(false);
+  const [tweaks, setTweaks]   = useState(TWEAK_DEFAULTS);
+  const [showTweaks, setShowTweaks] = useState(false);
+
+  useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode')   setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  function handleSave(tx) { setTxs(prev => [tx, ...prev]); }
+  function handleTweak(key, val) {
+    setTweaks(prev => {
+      const next = { ...prev, [key]: val };
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: next }, '*');
+      return next;
+    });
+  }
+
+  return (
+    <IOSDevice statusBarStyle="dark">
+      <div style={{ display:'flex', flexDirection:'column', height:'100%',
+        background:'#F2F4F6', overflow:'hidden' }}>
+        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', paddingTop:56 }}>
+          {tab==='home'  && <HomeScreen    transactions={txs} />}
+          {tab==='cal'   && <CalendarScreen transactions={txs} />}
+          {tab==='stats' && <StatsScreen    transactions={txs} />}
+          {tab==='fixed' && <FixedScreen    onApply={handleSave} />}
+        </div>
+
+        <TabBar tab={tab} setTab={setTab} onAdd={()=>setShowAdd(true)} />
+
+        {showAdd && <AddModal onClose={()=>setShowAdd(false)} onSave={handleSave} />}
+
+        {showTweaks && (
+          <TweaksPanel onClose={()=>{
+            setShowTweaks(false);
+            window.parent.postMessage({ type:'__edit_mode_dismissed' }, '*');
+          }}>
+            <TweakSection title="커플 정보">
+              <TweakText label="남편 이름" value={tweaks.husbandName}
+                onChange={v=>handleTweak('husbandName',v)} />
+              <TweakText label="아내 이름" value={tweaks.wifeName}
+                onChange={v=>handleTweak('wifeName',v)} />
+              <TweakText label="함께한 날 수" value={tweaks.daysTogether}
+                onChange={v=>handleTweak('daysTogether',v)} />
+            </TweakSection>
+          </TweaksPanel>
+        )}
+      </div>
+    </IOSDevice>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

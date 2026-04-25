@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'MaruBuri';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10-21@1.0/MaruBuri-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'MaruBuri';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10-21@1.0/MaruBuri-SemiBold.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'MaruBuri';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10-21@1.0/MaruBuri-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'MaruBuri';
+  src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-10-21@1.0/MaruBuri-ExtraLight.woff') format('woff');
+  font-weight: 200;
+  font-style: normal;
+}
+
+:root {
+  --background: #f4f5f7;
+  --foreground: #191f28;
+  --card: #ffffff;
+  --primary: #8b5cf6;
+  --primary-gradient: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  --secondary: #e5e8eb;
+  --text-muted: #8b95a1;
+  --border: #f2f4f6;
+  --red: #f04452;
+  --blue: #3182f6;
+  --green: #00b493;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'MaruBuri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Hide scrollbar for clean UI */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
