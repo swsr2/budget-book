@@ -25,9 +25,10 @@ export async function parseExcel(file: File): Promise<Omit<Transaction, 'id'>[]>
     let parsedDate = String(rawDate).trim().replace(/\//g, '-').replace(/\./g, '-');
     if (parsedDate.length > 10) parsedDate = parsedDate.substring(0, 10);
     
-    const typeVar = String(rawType).includes('수입') ? 'income' : 'expense';
+    const typeVar = String(rawType).includes('수입') ? 'income' : String(rawType).includes('이체') ? 'transfer' : 'expense';
     const amountNum = typeof rawAmount === 'number' ? rawAmount : parseInt(String(rawAmount).replace(/[^0-9]/g, '')) || 0;
-    const whoVar = String(rawWho).includes('아내') || String(rawWho).includes('wife') ? 'wife' : 'husband';
+    const whoVar = (String(rawWho).includes('아내') || String(rawWho).includes('wife')) ? 'wife' : 
+                   (String(rawWho).includes('공용') || String(rawWho).includes('shared') || String(rawWho).includes('공동')) ? 'shared' : 'husband';
     
     transactions.push({
       date: parsedDate,

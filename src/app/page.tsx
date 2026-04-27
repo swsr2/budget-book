@@ -68,7 +68,7 @@ export default function Page() {
         const { id, ...data } = tx;
         await updateDoc(ref, data);
         setTxs(prev => prev.map(t => t.id === id ? tx : t));
-      } catch(e) {
+      } catch (e) {
         alert('수정 권한 없음!');
       }
     } else {
@@ -76,7 +76,7 @@ export default function Page() {
         const { id, ...data } = tx;
         const docRef = await addDoc(txsCol, data);
         setTxs(prev => [...prev, { ...data, id: docRef.id as any }]);
-      } catch(e) {
+      } catch (e) {
         alert('저장 권한이 없습니다! DB 규칙을 확인하세요.');
       }
     }
@@ -90,25 +90,26 @@ export default function Page() {
       setTxs(prev => prev.filter(t => t.id !== id));
       setShowAdd(false);
       setEditTarget(null);
-    } catch(e) {
-      alert('삭제 권한 없음!');
+    } catch (e: any) {
+      console.error(e);
+      alert('삭제 에러: ' + (e.message || '권한 없음'));
     }
   }
 
   async function handleExcelSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if(!file) return;
+    if (!file) return;
     try {
       const parsed = await parseExcel(file);
       setPreviewData(parsed);
-    } catch(err) {
+    } catch (err) {
       alert('엑셀 읽기 오류. 양식을 확인하세요.');
     }
     e.target.value = '';
   }
 
   async function confirmExcelUpload() {
-    if(!previewData) return;
+    if (!previewData) return;
     setIsUploading(true);
     try {
       const batch = writeBatch(db);
@@ -121,7 +122,7 @@ export default function Page() {
       await batch.commit();
       setTxs(prev => [...prev, ...inserted]);
       setPreviewData(null);
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       alert('엑셀 데이터를 DB에 적재하는 중 오류 발생');
     } finally {
@@ -135,13 +136,13 @@ export default function Page() {
   };
 
   const renderScreen = () => {
-    switch(tab) {
-      case 'home': return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} />;
-      case 'calendar': return <CalendarScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} />;
-      case 'ledger': return <LedgerScreen transactions={txs} onRowClick={handleRowClick} />;
+    switch (tab) {
+      case 'home': return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
+      case 'calendar': return <CalendarScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} onDelete={handleDelete} />;
+      case 'ledger': return <LedgerScreen transactions={txs} onRowClick={handleRowClick} onDelete={handleDelete} />;
       case 'stats': return <StatsScreen transactions={txs} />;
       case 'fixed': return <FixedScreen onApply={handleSave} showAddFixed={showAddFixed} onCloseAddFixed={() => setShowAddFixed(false)} />;
-      default: return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} />;
+      default: return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
     }
   };
 
@@ -155,10 +156,10 @@ export default function Page() {
 
   return (
     <div className="min-h-screen sm:py-6 bg-[var(--secondary)] flex items-center justify-center font-['MaruBuri'] text-[var(--foreground)]">
-      
+
       {/* Responsive Premium Container */}
       <div className="w-full h-[100dvh] sm:h-[90vh] sm:max-h-[950px] sm:max-w-[440px] bg-[var(--background)] sm:rounded-[36px] sm:shadow-[0_20px_50px_rgba(0,0,0,0.1)] sm:border sm:border-gray-200 overflow-hidden flex flex-col relative transition-all duration-300 group">
-        
+
         {loading && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-md z-[200] flex items-center justify-center flex-col gap-4 animate-in fade-in transition-all">
             <div className="w-12 h-12 border-4 border-gray-200 border-b-[var(--primary)] rounded-full animate-spin"></div>
@@ -173,16 +174,16 @@ export default function Page() {
 
         {/* Floating Add Button - only on calendar & fixed */}
         {(tab === 'calendar' || tab === 'fixed') && (
-        <button 
-          onClick={() => { 
-            if (tab === 'fixed') { setShowAddFixed(true); } 
-            else { setShowAdd(true); setEditTarget(null); } 
-          }}
-          className="absolute bottom-[100px] right-5 z-[100] w-[58px] h-[58px] rounded-full text-white shadow-[0_8px_20px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
-          style={{ background: 'var(--primary-gradient)' }}
-        >
-          <Plus size={30} strokeWidth={2.5} />
-        </button>
+          <button
+            onClick={() => {
+              if (tab === 'fixed') { setShowAddFixed(true); }
+              else { setShowAdd(true); setEditTarget(null); }
+            }}
+            className="absolute bottom-[100px] right-5 z-[100] w-[58px] h-[58px] rounded-full text-white shadow-[0_8px_20px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+            style={{ background: 'var(--primary-gradient)' }}
+          >
+            <Plus size={30} strokeWidth={2.5} />
+          </button>
         )}
 
         {/* Bottom Glass Navigation */}
@@ -191,8 +192,8 @@ export default function Page() {
             const active = tab === t.id;
             const IconComp = t.icon;
             return (
-              <div 
-                key={t.id} 
+              <div
+                key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`flex flex-col items-center cursor-pointer transition-all duration-300 w-16 ${active ? 'text-[var(--primary)] -translate-y-1' : 'text-[#A0A5AE] hover:text-[#7A7E85]'}`}
               >
@@ -204,28 +205,28 @@ export default function Page() {
         </div>
 
       </div>
-      
+
       {/* CRUD Modal for Add/Edit/Delete */}
       {showAdd && (
-        <TxFormModal 
-           onClose={() => { setShowAdd(false); setEditTarget(null); }} 
-           onSave={handleSave} 
-           onDelete={handleDelete}
-           initialTx={editTarget}
-           defaultDate={selectedDate || undefined}
+        <TxFormModal
+          onClose={() => { setShowAdd(false); setEditTarget(null); }}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          initialTx={editTarget}
+          defaultDate={selectedDate || undefined}
         />
       )}
-      
+
       {/* Confirm Bulk Upload Modal */}
       {previewData && (
-        <ExcelPreviewModal 
-          parsedData={previewData} 
-          onConfirm={confirmExcelUpload} 
+        <ExcelPreviewModal
+          parsedData={previewData}
+          onConfirm={confirmExcelUpload}
           onCancel={() => setPreviewData(null)}
           isUploading={isUploading}
         />
       )}
-      
+
     </div>
   );
 }
