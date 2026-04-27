@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { HomeScreen, CalendarScreen, LedgerScreen, StatsScreen, FixedScreen, TxFormModal, AssetItem } from '@/components/budget/Screens';
+import { HomeScreen, HistoryScreen, StatsScreen, FixedScreen, TxFormModal, AssetItem } from '@/components/budget/Screens';
 import { Transaction } from '@/components/budget/Constants';
 import { Home, CalendarDays, ScrollText, PieChart, ArrowLeftRight, Plus } from 'lucide-react';
 import { parseExcel } from '@/utils/excelParser';
@@ -138,8 +138,7 @@ export default function Page() {
   const renderScreen = () => {
     switch (tab) {
       case 'home': return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
-      case 'calendar': return <CalendarScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} onDelete={handleDelete} />;
-      case 'ledger': return <LedgerScreen transactions={txs} onRowClick={handleRowClick} onDelete={handleDelete} />;
+      case 'history': return <HistoryScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} onDelete={handleDelete} />;
       case 'stats': return <StatsScreen transactions={txs} />;
       case 'fixed': return <FixedScreen onApply={handleSave} showAddFixed={showAddFixed} onCloseAddFixed={() => setShowAddFixed(false)} />;
       default: return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
@@ -148,8 +147,7 @@ export default function Page() {
 
   const tabs = [
     { id: 'home', label: '홈', icon: Home },
-    { id: 'calendar', label: '달력', icon: CalendarDays },
-    { id: 'ledger', label: '내역', icon: ScrollText },
+    { id: 'history', label: '내역', icon: CalendarDays },
     { id: 'stats', label: '통계', icon: PieChart },
     { id: 'fixed', label: '고정비', icon: ArrowLeftRight },
   ];
@@ -172,8 +170,8 @@ export default function Page() {
           {renderScreen()}
         </div>
 
-        {/* Floating Add Button - only on calendar & fixed */}
-        {(tab === 'calendar' || tab === 'fixed') && (
+        {/* Floating Add Button - only on history & fixed */}
+        {(tab === 'history' || tab === 'fixed') && (
           <button
             onClick={() => {
               if (tab === 'fixed') { setShowAddFixed(true); }

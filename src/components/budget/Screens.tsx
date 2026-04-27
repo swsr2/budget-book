@@ -32,7 +32,7 @@ export function TxRow({ tx, last, onClick, onDelete }: { tx: Transaction, last: 
           {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '' : '-'}{fmt(tx.amount)}원
         </div>
         {onDelete && (
-          <button onClick={(e) => { e.stopPropagation(); if(confirm('정말 삭제할까요?')) onDelete(tx.id); }} className="text-[13px] p-1.5 rounded-md hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors">
+          <button onClick={(e) => { e.stopPropagation(); if (confirm('정말 삭제할까요?')) onDelete(tx.id); }} className="text-[13px] p-1.5 rounded-md hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors">
             🗑️
           </button>
         )}
@@ -197,30 +197,31 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
   );
 }
 
-export function CalendarScreen({ transactions, onRowClick, onDateSelect, onDelete }: { transactions: Transaction[], onRowClick?: (tx: Transaction) => void, onDateSelect?: (date: string) => void, onDelete?: (id: string) => void }) {
+export function HistoryScreen({ transactions, onRowClick, onDateSelect, onDelete }: { transactions: Transaction[], onRowClick?: (tx: Transaction) => void, onDateSelect?: (date: string) => void, onDelete?: (id: string) => void }) {
+  const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [currentDate, setCurrentDate] = useState(() => {
     const dates = transactions.map(t => t.date).sort();
     return dates.length > 0 ? new Date(dates[dates.length - 1]) : new Date();
   });
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
   const formattedMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
-
-  const [sel, setSel] = useState("");
   const moveMonth = (dir: number) => {
     setCurrentDate(new Date(year, month + dir, 1));
-    setSel('');
-  };
-  const handleSelectDate = (dk: string) => {
-    setSel(dk);
-    onDateSelect?.(dk);
+    if (view === 'calendar') setSel('');
   };
 
+  // Calendar specific
+  const [sel, setSel] = useState("");
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const handleSelectDate = (dk: string) => { setSel(dk); onDateSelect?.(dk); };
   const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
+  // Data
   const monthTxs = transactions.filter(t => t.date.startsWith(formattedMonth));
+
+  // For Calendar
   const dayMap: Record<string, { inc: number, exp: number }> = {};
   monthTxs.forEach(t => {
     if (!dayMap[t.date]) dayMap[t.date] = { inc: 0, exp: 0 };
@@ -239,9 +240,21 @@ export function CalendarScreen({ transactions, onRowClick, onDateSelect, onDelet
   })();
   const selTxs = displaySel ? monthTxs.filter(t => t.date === displaySel).sort((a, b) => b.amount - a.amount) : [];
 
+  // For List
+  const groups: Record<string, Transaction[]> = {};
+  [...monthTxs].sort((a, b) => b.date.localeCompare(a.date)).forEach(tx => {
+    if (!groups[tx.date]) groups[tx.date] = [];
+    groups[tx.date].push(tx);
+  });
+
   return (
     <div className="flex-1 overflow-y-auto bg-[var(--background)] pb-24 animate-[fadeIn_0.3s_ease]">
-      <div className="bg-white rounded-b-[40px] px-4 pt-8 pb-5 shadow-sm relative z-10 w-full border-b border-[var(--border)]">
+      <div className={`bg-white px-4 pt-8 pb-5 shadow-sm relative z-10 w-full border-b border-[var(--border)] ${view === 'calendar' ? 'rounded-b-[40px]' : 'rounded-b-[40px] mb-4'}`}>
+        <div className="flex bg-gray-100 p-1 rounded-xl w-full max-w-[200px] mx-auto mb-5">
+          <button onClick={() => setView('calendar')} className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all ${view === 'calendar' ? 'bg-white shadow-sm text-[var(--primary)]' : 'text-[var(--text-muted)]'}`}>달력</button>
+          <button onClick={() => setView('list')} className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-all ${view === 'list' ? 'bg-white shadow-sm text-[var(--primary)]' : 'text-[var(--text-muted)]'}`}>목록</button>
+        </div>
+
         <div className="flex items-center justify-between mb-5 px-2">
           <button onClick={() => moveMonth(-1)} className="p-2 text-[var(--text-muted)] hover:bg-gray-100 rounded-full transition-colors font-bold text-xl leading-none">‹</button>
           <div className="text-center">
@@ -254,97 +267,76 @@ export function CalendarScreen({ transactions, onRowClick, onDateSelect, onDelet
           <button onClick={() => moveMonth(1)} className="p-2 text-[var(--text-muted)] hover:bg-gray-100 rounded-full transition-colors font-bold text-xl leading-none">›</button>
         </div>
 
-        <div className="grid grid-cols-7 text-center pb-2 mb-2 border-b border-[var(--border)]">
-          {dayLabels.map((d, i) => (
-            <div key={d} className={`text-[11px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-[var(--text-muted)]'}`}>{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-y-2">
-          {cells.map((day, i) => {
-            if (!day) return <div key={`e${i}`} />;
-            const dk = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const data = dayMap[dk];
-            const isSel = dk === displaySel;
-            return (
-              <div key={day} onClick={() => handleSelectDate(dk)} className="flex flex-col items-center p-1 cursor-pointer group">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 transition-all ${isSel ? 'bg-[var(--foreground)] text-white shadow-md' : 'text-[var(--foreground)] group-hover:bg-gray-100'}`}>
-                  <span className={`text-[13px] ${isSel ? 'font-bold' : i % 7 === 0 ? 'text-red-500' : i % 7 === 6 ? 'text-blue-500' : ''}`}>{day}</span>
-                </div>
-                {data && (
-                  <div className="flex flex-col items-center gap-[1px]">
-                    {data.exp > 0 && <span className="text-[9px] text-[var(--foreground)] font-[900] tracking-tighter">-{fmtShort(data.exp)}</span>}
-                    {data.inc > 0 && <span className="text-[9px] text-[var(--primary)] font-[900] tracking-tighter">+{fmtShort(data.inc)}</span>}
+        {view === 'calendar' && (
+          <>
+            <div className="grid grid-cols-7 text-center pb-2 mb-2 border-b border-[var(--border)]">
+              {dayLabels.map((d, i) => (
+                <div key={d} className={`text-[11px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-[var(--text-muted)]'}`}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-y-2">
+              {cells.map((day, i) => {
+                if (!day) return <div key={`e${i}`} />;
+                const dk = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const data = dayMap[dk];
+                const isSel = dk === displaySel;
+                return (
+                  <div key={day} onClick={() => handleSelectDate(dk)} className="flex flex-col items-center p-1 cursor-pointer group">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 transition-all ${isSel ? 'bg-[var(--foreground)] text-white shadow-md' : 'text-[var(--foreground)] group-hover:bg-gray-100'}`}>
+                      <span className={`text-[13px] ${isSel ? 'font-bold' : i % 7 === 0 ? 'text-red-500' : i % 7 === 6 ? 'text-blue-500' : ''}`}>{day}</span>
+                    </div>
+                    {data && (
+                      <div className="flex flex-col items-center gap-[1px]">
+                        {data.exp > 0 && <span className="text-[9px] text-[var(--foreground)] font-[900] tracking-tighter">-{fmtShort(data.exp)}</span>}
+                        {data.inc > 0 && <span className="text-[9px] text-[var(--primary)] font-[900] tracking-tighter">+{fmtShort(data.inc)}</span>}
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {view === 'calendar' && (
+        <div className="mt-4 mx-4 sm:mx-6 rounded-[28px] bg-white p-5 pb-3 shadow-sm">
+          <div className="text-[14px] font-bold text-[var(--text-muted)] mb-3 px-1 border-b border-[var(--border)] pb-3">
+            {displaySel ? displaySel.slice(5).replace('-', '월 ') + '일 내역' : '날짜를 선택하세요'}
+          </div>
+          {selTxs.length === 0
+            ? <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">이 날은 내역이 없어요 🐣</div>
+            : selTxs.map((tx, i) => <TxRow key={tx.id} tx={tx} onClick={onRowClick} onDelete={onDelete} last={i === selTxs.length - 1} />)
+          }
+        </div>
+      )}
+
+      {view === 'list' && (
+        <>
+          {Object.keys(groups).length === 0 && (
+            <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">이 달에는 내역이 없습니다.</div>
+          )}
+
+          {Object.entries(groups).map(([date, txs]) => {
+            const dayInc = txs.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + t.amount, 0);
+            const dayExp = txs.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + t.amount, 0);
+            const [, mm, dd] = date.split('-');
+            const dayName = ['일', '월', '화', '수', '목', '금', '토'][new Date(date).getDay()];
+            return (
+              <div key={date} className="mx-4 sm:mx-6 rounded-[28px] bg-white p-5 pb-3 shadow-sm mb-4">
+                <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+                  <span className="text-[13px] font-extrabold text-[var(--text-muted)]">{mm}월 {dd}일 {dayName}요일</span>
+                  <div className="flex gap-3">
+                    {dayInc > 0 && <span className="text-[12px] text-[var(--primary)] font-bold">+{fmt(dayInc)}원</span>}
+                    {dayExp > 0 && <span className="text-[12px] text-[var(--foreground)] font-bold">-{fmt(dayExp)}원</span>}
+                  </div>
+                </div>
+                {txs.map((tx, i) => <TxRow key={tx.id} tx={tx} onClick={onRowClick} onDelete={onDelete} last={i === txs.length - 1} />)}
               </div>
             );
           })}
-        </div>
-      </div>
-
-      <div className="mt-4 mx-4 sm:mx-6 rounded-[28px] bg-white p-5 pb-3 shadow-sm">
-        <div className="text-[14px] font-bold text-[var(--text-muted)] mb-3 px-1 border-b border-[var(--border)] pb-3">
-          {displaySel ? displaySel.slice(5).replace('-', '월 ') + '일 내역' : '날짜를 선택하세요'}
-        </div>
-        {selTxs.length === 0
-          ? <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">이 날은 내역이 없어요 🐣</div>
-          : selTxs.map((tx, i) => <TxRow key={tx.id} tx={tx} onClick={onRowClick} onDelete={onDelete} last={i === selTxs.length - 1} />)
-        }
-      </div>
-    </div>
-  );
-}
-
-export function LedgerScreen({ transactions, onRowClick, onDelete }: { transactions: Transaction[], onRowClick?: (tx: Transaction) => void, onDelete?: (id: string) => void }) {
-  const [currentDate, setCurrentDate] = useState(() => {
-    const dates = transactions.map(t => t.date).sort();
-    return dates.length > 0 ? new Date(dates[dates.length - 1]) : new Date();
-  });
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const formattedMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
-
-  const moveMonth = (dir: number) => setCurrentDate(new Date(year, month + dir, 1));
-  const monthTxs = transactions.filter(t => t.date.startsWith(formattedMonth));
-
-  const groups: Record<string, Transaction[]> = {};
-  [...monthTxs].sort((a, b) => b.date.localeCompare(a.date)).forEach(tx => {
-    if (!groups[tx.date]) groups[tx.date] = [];
-    groups[tx.date].push(tx);
-  });
-
-  return (
-    <div className="flex-1 overflow-y-auto bg-[var(--background)] pb-24 animate-[fadeIn_0.3s_ease]">
-      <div className="bg-white px-5 sm:px-6 pt-8 pb-5 rounded-b-[40px] shadow-sm relative z-10 w-full mb-4">
-        <div className="flex justify-between items-center px-1">
-          <button onClick={() => moveMonth(-1)} className="p-2 text-[var(--text-muted)] hover:bg-gray-100 rounded-full transition-colors font-bold text-xl leading-none">‹</button>
-          <div className="text-[20px] font-extrabold text-[var(--foreground)] tracking-tight">{year}년 {month + 1}월 내역</div>
-          <button onClick={() => moveMonth(1)} className="p-2 text-[var(--text-muted)] hover:bg-gray-100 rounded-full transition-colors font-bold text-xl leading-none">›</button>
-        </div>
-      </div>
-
-      {Object.keys(groups).length === 0 && (
-        <div className="py-12 text-center text-[13px] text-[var(--text-muted)]">이 달에는 내역이 없습니다.</div>
+        </>
       )}
-
-      {Object.entries(groups).map(([date, txs]) => {
-        const dayInc = txs.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + t.amount, 0);
-        const dayExp = txs.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + t.amount, 0);
-        const [, mm, dd] = date.split('-');
-        const dayName = ['일', '월', '화', '수', '목', '금', '토'][new Date(date).getDay()];
-        return (
-          <div key={date} className="mx-4 sm:mx-6 rounded-[28px] bg-white p-5 pb-3 shadow-sm mb-4">
-            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
-              <span className="text-[13px] font-extrabold text-[var(--text-muted)]">{mm}월 {dd}일 {dayName}요일</span>
-              <div className="flex gap-3">
-                {dayInc > 0 && <span className="text-[12px] text-[var(--primary)] font-bold">+{fmt(dayInc)}원</span>}
-                {dayExp > 0 && <span className="text-[12px] text-[var(--foreground)] font-bold">-{fmt(dayExp)}원</span>}
-              </div>
-            </div>
-            {txs.map((tx, i) => <TxRow key={tx.id} tx={tx} onClick={onRowClick} onDelete={onDelete} last={i === txs.length - 1} />)}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -535,25 +527,23 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
           <div className="bg-white rounded-t-[32px] w-full sm:max-w-[440px] mx-auto p-6 pb-8 shadow-2xl animate-[slideUp_0.3s_ease]">
             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5" />
             <div className="text-[18px] font-extrabold text-[var(--primary)] mb-5">✨ 새 고정비 추가</div>
-            
+
             <div className="flex bg-gray-100 rounded-xl p-1.5 mb-5">
-              {[['expense','지출'],['transfer','이체']].map(([v,l])=>(
-                <button key={v} onClick={()=>{setNewType(v); setNewCategory('');}}
-                  className={`flex-1 py-2 rounded-lg font-bold text-[14px] transition-all ${newType===v?'bg-white shadow-sm text-[var(--foreground)]':'text-[var(--text-muted)]'}`}>
+              {[['expense', '지출'], ['transfer', '이체']].map(([v, l]) => (
+                <button key={v} onClick={() => { setNewType(v); setNewCategory(''); }}
+                  className={`flex-1 py-2 rounded-lg font-bold text-[14px] transition-all ${newType === v ? 'bg-white shadow-sm text-[var(--foreground)]' : 'text-[var(--text-muted)]'}`}>
                   {l}
                 </button>
               ))}
             </div>
-            
-            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="항목명 (예: 월세, 넷플릭스)" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
-            <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="금액" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
-            
             <div className="flex gap-2 flex-wrap mb-6">
               {(newType === 'expense' ? CATS_EXPENSE : CATS_TRANSFER).map(c => (
                 <button key={c.id} onClick={() => setNewCategory(c.id)} className={`px-4 py-2 rounded-full font-bold text-[13px] border ${newCategory === c.id ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'bg-white border-gray-200'}`}>{c.id}</button>
               ))}
             </div>
 
+            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="상세내용 (예: 관리비)" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
+            <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="금액" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
             <button onClick={addNew} className="w-full py-4 rounded-xl font-bold text-white" style={{ background: 'var(--primary-gradient)' }}>추가하기</button>
           </div>
         </div>
