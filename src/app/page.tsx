@@ -13,6 +13,7 @@ const DEFAULT_ASSETS: AssetItem[] = [
   { id: 'cash', label: '현금 자산', emoji: '💵', amount: 0 },
   { id: 'savings', label: '예적금', emoji: '🏧', amount: 0 },
   { id: 'invest', label: '투자 자산', emoji: '📈', amount: 0 },
+  { id: 'realestate', label: '부동산', emoji: '🏢', amount: 0 },
   { id: 'loan', label: '대출', emoji: '🏠', amount: 0 },
 ];
 
@@ -30,7 +31,15 @@ export default function Page() {
 
   useEffect(() => {
     const saved = localStorage.getItem('budget_assets');
-    if (saved) setAssets(JSON.parse(saved));
+    if (saved) {
+      const parsed = JSON.parse(saved) as AssetItem[];
+      // 새로운 기본 항목이 추가되었을 경우를 대비해 병합
+      const merged = DEFAULT_ASSETS.map(def => {
+        const found = parsed.find(p => p.id === def.id);
+        return found ? { ...def, amount: found.amount } : def;
+      });
+      setAssets(merged);
+    }
   }, []);
 
   const handleAssetsChange = (newAssets: AssetItem[]) => {
@@ -60,9 +69,15 @@ export default function Page() {
       // User requested: all expenses from 'bank'
       updateAmount('bank', -tx.amount * factor);
     } else if (tx.type === 'transfer') {
-      updateAmount('bank', -tx.amount * factor);
+      // 출처 판단: 메모에 '예적금'이 있으면 예적금에서 차감, 아니면 계좌에서 차감
+      const isFromSavings = tx.memo?.includes('예적금');
+      const sourceId = isFromSavings ? 'savings' : 'bank';
+      
+      updateAmount(sourceId, -tx.amount * factor);
+      
       if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
       if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
+      if (tx.category === '부동산') updateAmount('realestate', tx.amount * factor);
     }
     return next;
   };
