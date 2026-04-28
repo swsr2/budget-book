@@ -1,13 +1,13 @@
 import fs from 'fs';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 
 const envFile = fs.readFileSync('c:/Users/skstk/Desktop/next-project/.env.local', 'utf-8');
 const envVars = {};
 envFile.split('\n').forEach(line => {
   if (line && line.includes('=')) {
-    const [k, v] = line.split('=');
-    envVars[k.trim()] = v.trim();
+    const [k, ...v] = line.split('=');
+    envVars[k.trim()] = v.join('=').trim();
   }
 });
 
@@ -23,27 +23,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-async function deleteAllData() {
-  console.log('Fetching all transactions to delete...');
+async function clearData() {
+  console.log('Firebase에 저장된 데이터를 불러오는 중...');
   const txsCol = collection(db, 'transactions');
   const snapshot = await getDocs(txsCol);
   
-  if (snapshot.empty) {
-    console.log('No data to delete. Database is already empty.');
-    process.exit(0);
-  }
-
   let count = 0;
   for (const document of snapshot.docs) {
     await deleteDoc(doc(db, 'transactions', document.id));
     count++;
+    console.log(`삭제됨: ${document.id}`);
   }
-
-  console.log(`Successfully deleted all ${count} records!`);
+  
+  console.log(`완료! 총 ${count}개의 내역을 모두 삭제했습니다.`);
   process.exit(0);
 }
 
-deleteAllData().catch(e => {
-  console.error('Delete Error:', e);
+clearData().catch(e => {
+  console.error('삭제 중 에러 발생:', e);
   process.exit(1);
 });

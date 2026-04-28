@@ -26,13 +26,12 @@ export default function Page() {
   const [showAddFixed, setShowAddFixed] = useState(false);
 
   // Assets State (localStorage persistence)
-  const [assets, setAssets] = useState<AssetItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('budget_assets');
-      if (saved) return JSON.parse(saved);
-    }
-    return DEFAULT_ASSETS;
-  });
+  const [assets, setAssets] = useState<AssetItem[]>(DEFAULT_ASSETS);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('budget_assets');
+    if (saved) setAssets(JSON.parse(saved));
+  }, []);
 
   const handleAssetsChange = (newAssets: AssetItem[]) => {
     setAssets(newAssets);
@@ -42,6 +41,31 @@ export default function Page() {
   // Excel Preview State
   const [previewData, setPreviewData] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Helper: Apply Transaction to Assets
+  const applyTransactionToAssets = (tx: Transaction | Omit<Transaction, 'id'>, mode: 'add' | 'delete', currentAssets: AssetItem[]) => {
+    const next = [...currentAssets.map(a => ({ ...a }))];
+    const factor = mode === 'add' ? 1 : -1;
+
+    const updateAmount = (id: string, delta: number) => {
+      const idx = next.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        next[idx].amount += delta;
+      }
+    };
+
+    if (tx.type === 'income') {
+      updateAmount('bank', tx.amount * factor);
+    } else if (tx.type === 'expense') {
+      // User requested: all expenses from 'bank'
+      updateAmount('bank', -tx.amount * factor);
+    } else if (tx.type === 'transfer') {
+      updateAmount('bank', -tx.amount * factor);
+      if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
+      if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
+    }
+    return next;
+  };
 
   const txsCol = collection(db, 'transactions');
 
@@ -64,10 +88,17 @@ export default function Page() {
   async function handleSave(tx: Transaction) {
     if (editTarget) {
       try {
+        // 1. Undo old effect
+        let nextAssets = applyTransactionToAssets(editTarget, 'delete', assets);
+        // 2. Apply new effect
+        nextAssets = applyTransactionToAssets(tx, 'add', nextAssets);
+
         const ref = doc(db, 'transactions', tx.id);
         const { id, ...data } = tx;
         await updateDoc(ref, data);
+        
         setTxs(prev => prev.map(t => t.id === id ? tx : t));
+        handleAssetsChange(nextAssets);
       } catch (e) {
         alert('수정 권한 없음!');
       }
@@ -75,7 +106,13 @@ export default function Page() {
       try {
         const { id, ...data } = tx;
         const docRef = await addDoc(txsCol, data);
-        setTxs(prev => [...prev, { ...data, id: docRef.id as any }]);
+        const newTx = { ...data, id: docRef.id as any };
+        
+        setTxs(prev => [...prev, newTx]);
+        
+        // Apply new effect
+        const nextAssets = applyTransactionToAssets(newTx, 'add', assets);
+        handleAssetsChange(nextAssets);
       } catch (e) {
         alert('저장 권한이 없습니다! DB 규칙을 확인하세요.');
       }
@@ -85,8 +122,15 @@ export default function Page() {
   }
 
   async function handleDelete(id: string) {
+    const target = txs.find(t => t.id === id);
     try {
       await deleteDoc(doc(db, 'transactions', id));
+      
+      if (target) {
+        const nextAssets = applyTransactionToAssets(target, 'delete', assets);
+        handleAssetsChange(nextAssets);
+      }
+      
       setTxs(prev => prev.filter(t => t.id !== id));
       setShowAdd(false);
       setEditTarget(null);
@@ -114,13 +158,21 @@ export default function Page() {
     try {
       const batch = writeBatch(db);
       const inserted: Transaction[] = [];
+      let nextAssets = [...assets.map(a => ({ ...a }))];
+
       previewData.forEach(item => {
         const newRef = doc(txsCol);
         batch.set(newRef, item);
-        inserted.push({ ...item, id: newRef.id as any });
+        const newTx = { ...item, id: newRef.id as any };
+        inserted.push(newTx);
+        
+        // Update assets for each item
+        nextAssets = applyTransactionToAssets(newTx, 'add', nextAssets);
       });
+
       await batch.commit();
       setTxs(prev => [...prev, ...inserted]);
+      handleAssetsChange(nextAssets);
       setPreviewData(null);
     } catch (err) {
       console.error(err);

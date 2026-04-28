@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { C, fmt, fmtShort, getCat, Transaction, CATS_EXPENSE, CATS_INCOME, CATS_TRANSFER, PAYMENTS, FIXED_EXPENSES_DEFAULT } from './Constants';
 import { Icon, CatIcon } from './Icons';
 
@@ -128,10 +128,20 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
           </label>
         </div>
 
-        {/* Total Assets */}
-        <div className="mb-5">
-          <div className="text-[12px] text-[var(--text-muted)] font-medium mb-0.5">총 자산</div>
-          <div className="text-[22px] font-extrabold text-[var(--foreground)] tracking-tight">{fmt(totalAssets)}<span className="text-[14px] font-bold">원</span></div>
+        {/* Assets Summary Header Card */}
+        <div className="mb-6 p-5 rounded-[28px] bg-gray-50/60 border border-gray-100 flex justify-between items-end">
+          <div>
+            <div className="text-[12px] text-[var(--text-muted)] font-bold mb-1 opacity-80">총 자산</div>
+            <div className="text-[26px] font-extrabold text-[var(--foreground)] tracking-tight leading-none">
+              {fmt(totalAssets)}<span className="text-[15px] font-bold ml-0.5">원</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] text-[var(--text-muted)] font-bold mb-0.5 opacity-60">순자산 (자산-대출)</div>
+            <div className="text-[14px] font-extrabold text-[var(--foreground)] opacity-70">
+              {fmt(totalAssets - (loanAsset?.amount || 0))}원
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3 mb-7 w-full">
@@ -453,13 +463,12 @@ export function StatsScreen({ transactions }: { transactions: Transaction[] }) {
 }
 
 export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onApply: (tx: Transaction) => void, showAddFixed?: boolean, onCloseAddFixed?: () => void }) {
-  const [items, setItems] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('budget_fixed');
-      if (saved) return JSON.parse(saved);
-    }
-    return FIXED_EXPENSES_DEFAULT;
-  });
+  const [items, setItems] = useState(FIXED_EXPENSES_DEFAULT);
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('budget_fixed');
+    if (saved) setItems(JSON.parse(saved));
+  }, []);
   const [applied, setApplied] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState('');
