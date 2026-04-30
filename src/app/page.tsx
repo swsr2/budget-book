@@ -300,6 +300,7 @@ export default function Page() {
           onConfirm={confirmExcelUpload}
           onCancel={() => setPreviewData(null)}
           isUploading={isUploading}
+          existingTxs={txs}
         />
       )}
 

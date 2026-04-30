@@ -464,20 +464,33 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [editPayment, setEditPayment] = useState('신용카드');
+  const [editMemo, setEditMemo] = useState('');
 
-  const [newType, setNewType] = useState('expense');
-  const [newLabel, setNewLabel] = useState('');
-  const [newAmount, setNewAmount] = useState('');
+  const [newPayment, setNewPayment] = useState('신용카드');
+  const [newMemo, setNewMemo] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const activeTotal = items.filter((i: any) => i.active).reduce((s: number, i: any) => s + i.amount, 0);
 
   function persist(next: typeof items) { setItems(next); localStorage.setItem('budget_fixed', JSON.stringify(next)); }
   function toggle(id: number) { persist(items.map((i: any) => i.id === id ? { ...i, active: !i.active } : i)); }
   function remove(id: number) { if (confirm('이 고정비 항목을 삭제할까요?')) persist(items.filter((i: any) => i.id !== id)); }
-  function startEdit(item: any) { setEditIdx(item.id); setEditLabel(item.label); setEditAmount(String(item.amount)); }
+  function startEdit(item: any) { 
+    setEditIdx(item.id); 
+    setEditLabel(item.label); 
+    setEditAmount(String(item.amount)); 
+    setEditPayment(item.payment || '신용카드');
+    setEditMemo(item.memo || '');
+  }
   function saveEdit() {
     if (editIdx === null) return;
-    persist(items.map((i: any) => i.id === editIdx ? { ...i, label: editLabel, amount: parseInt(editAmount) || 0 } : i));
+    persist(items.map((i: any) => i.id === editIdx ? { 
+      ...i, 
+      label: editLabel, 
+      amount: parseInt(editAmount) || 0,
+      payment: editPayment,
+      memo: editMemo
+    } : i));
     setEditIdx(null);
   }
   function addNew() {
@@ -489,6 +502,8 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
       amount: parseInt(newAmount) || 0,
       type: newType,
       category: newCategory,
+      payment: newPayment,
+      memo: newMemo,
       icon: catObj.icon,
       bg: catObj.bg,
       fg: catObj.fg,
@@ -496,13 +511,20 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
     };
     persist([...items, newItem]);
     setNewLabel(''); setNewAmount(''); setNewCategory(''); setNewType('expense');
+    setNewPayment('신용카드'); setNewMemo('');
     onCloseAddFixed?.();
   }
   function apply() {
     items.filter((i: any) => i.active).forEach((item: any) => {
       onApply({
-        type: item.type || 'expense', category: item.category, amount: item.amount,
-        who: 'shared', payment: '계좌이체', memo: item.label, date: new Date().toISOString().slice(0, 10), id: Date.now() + item.id + ""
+        type: item.type || 'expense', 
+        category: item.category, 
+        amount: item.amount,
+        who: 'shared', 
+        payment: item.payment || '계좌이체', 
+        memo: item.memo ? `${item.label} (${item.memo})` : item.label, 
+        date: new Date().toISOString().slice(0, 10), 
+        id: Date.now() + item.id + ""
       });
     });
     setApplied(true);
@@ -544,6 +566,14 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
 
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="상세내용 (예: 관리비)" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
             <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="금액" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
+            
+            <div className="flex gap-2 mb-3">
+              {['신용카드', '체크카드', '현금', '계좌이체'].map(p => (
+                <button key={p} onClick={() => setNewPayment(p)} className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all ${newPayment === p ? 'bg-[var(--foreground)] text-white border-[var(--foreground)]' : 'bg-white border-gray-100 text-gray-400'}`}>{p}</button>
+              ))}
+            </div>
+            <input value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="결제일/카드명 등 (선택)" className="w-full p-4 rounded-xl bg-gray-50 mb-5 outline-none font-medium text-[14px]" />
+
             <button onClick={addNew} className="w-full py-4 rounded-xl font-bold text-white" style={{ background: 'var(--primary-gradient)' }}>추가하기</button>
           </div>
         </div>
@@ -559,6 +589,12 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
                   <input value={editLabel} onChange={e => setEditLabel(e.target.value)} placeholder="항목명" className="text-[14px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
                   <div className="flex gap-2">
                     <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} placeholder="금액" className="flex-1 text-[14px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
+                    <select value={editPayment} onChange={e => setEditPayment(e.target.value)} className="w-24 text-[12px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50">
+                      {['신용카드', '체크카드', '현금', '계좌이체'].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <input value={editMemo} onChange={e => setEditMemo(e.target.value)} placeholder="메모 (선택)" className="text-[13px] p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
+                  <div className="flex gap-2 justify-end mt-1">
                     <button onClick={saveEdit} className="px-4 py-2 rounded-xl text-white text-[13px] font-bold" style={{ background: 'var(--primary-gradient)' }}>저장</button>
                     <button onClick={() => setEditIdx(null)} className="px-3 py-2 rounded-xl bg-gray-100 text-[13px] font-bold text-gray-500">취소</button>
                   </div>
@@ -575,7 +611,11 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={`text-[14px] font-bold mb-0.5 ${item.active ? 'text-[var(--foreground)]' : 'text-gray-400'}`}>{item.label}</div>
-                      <div className="text-[11px] text-gray-400">[{item.type === 'transfer' ? '이체' : '지출'}] {item.category} · 매월 자동</div>
+                      <div className="text-[11px] text-gray-400">
+                        {item.payment && <span className="text-[var(--primary)] font-bold mr-1">{item.payment}</span>}
+                        {item.memo && <span className="mr-1">· {item.memo}</span>}
+                        <span>[{item.type === 'transfer' ? '이체' : '지출'}] {item.category}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
