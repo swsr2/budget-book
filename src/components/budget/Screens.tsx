@@ -453,13 +453,13 @@ export function StatsScreen({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
-export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onApply: (tx: Transaction) => void, showAddFixed?: boolean, onCloseAddFixed?: () => void }) {
-  const [items, setItems] = useState(FIXED_EXPENSES_DEFAULT);
-  
-  useEffect(() => {
-    const saved = localStorage.getItem('budget_fixed');
-    if (saved) setItems(JSON.parse(saved));
-  }, []);
+export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onCloseAddFixed }: { 
+  items: any[], 
+  onItemsChange: (items: any[]) => void,
+  onApply: (tx: Transaction) => void, 
+  showAddFixed?: boolean, 
+  onCloseAddFixed?: () => void 
+}) {
   const [applied, setApplied] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState('');
@@ -475,7 +475,7 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
   const [newCategory, setNewCategory] = useState('');
   const activeTotal = items.filter((i: any) => i.active).reduce((s: number, i: any) => s + i.amount, 0);
 
-  function persist(next: typeof items) { setItems(next); localStorage.setItem('budget_fixed', JSON.stringify(next)); }
+  function persist(next: typeof items) { onItemsChange(next); }
   function toggle(id: number) { persist(items.map((i: any) => i.id === id ? { ...i, active: !i.active } : i)); }
   function remove(id: number) { if (confirm('이 고정비 항목을 삭제할까요?')) persist(items.filter((i: any) => i.id !== id)); }
   function startEdit(item: any) { 

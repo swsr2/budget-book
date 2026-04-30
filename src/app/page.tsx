@@ -5,8 +5,9 @@ import { Transaction } from '@/components/budget/Constants';
 import { Home, CalendarDays, ScrollText, PieChart, ArrowLeftRight, Plus } from 'lucide-react';
 import { parseExcel } from '@/utils/excelParser';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, writeBatch, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 import { ExcelPreviewModal } from '@/components/budget/ExcelPreviewModal';
+import { FIXED_EXPENSES_DEFAULT } from '@/components/budget/Constants';
 
 const DEFAULT_ASSETS: AssetItem[] = [
   { id: 'bank', label: '계좌 자산', emoji: '🏦', amount: 0 },
@@ -27,25 +28,26 @@ export default function Page() {
   const [selectedDate, setSelectedDate] = useState('');
   const [showAddFixed, setShowAddFixed] = useState(false);
 
-  // Assets State (localStorage persistence)
+  // Assets State
   const [assets, setAssets] = useState<AssetItem[]>(DEFAULT_ASSETS);
+  const [fixedExpenses, setFixedExpenses] = useState<any[]>(FIXED_EXPENSES_DEFAULT);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('budget_assets');
-    if (saved) {
-      const parsed = JSON.parse(saved) as AssetItem[];
-      // 새로운 기본 항목이 추가되었을 경우를 대비해 병합
-      const merged = DEFAULT_ASSETS.map(def => {
-        const found = parsed.find(p => p.id === def.id);
-        return found ? { ...def, amount: found.amount } : def;
-      });
-      setAssets(merged);
-    }
-  }, []);
-
-  const handleAssetsChange = (newAssets: AssetItem[]) => {
+  const handleAssetsChange = async (newAssets: AssetItem[]) => {
     setAssets(newAssets);
-    localStorage.setItem('budget_assets', JSON.stringify(newAssets));
+    try {
+      await setDoc(doc(db, 'settings', 'assets'), { items: newAssets });
+    } catch (e) {
+      console.error("자산 저장 실패:", e);
+    }
+  };
+
+  const handleFixedExpensesChange = async (newItems: any[]) => {
+    setFixedExpenses(newItems);
+    try {
+      await setDoc(doc(db, 'settings', 'fixedExpenses'), { items: newItems });
+    } catch (e) {
+      console.error("고정비 저장 실패:", e);
+    }
   };
 
   // Excel Preview State
@@ -98,12 +100,39 @@ export default function Page() {
   useEffect(() => {
     async function fetchData() {
       try {
+        // 1. Transactions
         const snapshot = await getDocs(txsCol);
         const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Transaction));
         setTxs(data);
+
+        // 2. Assets (Firestore -> LocalStorage Migration -> Default)
+        const assetsDoc = await getDoc(doc(db, 'settings', 'assets'));
+        if (assetsDoc.exists()) {
+          setAssets(assetsDoc.data().items);
+        } else {
+          const localAssets = localStorage.getItem('budget_assets');
+          if (localAssets) {
+            const parsed = JSON.parse(localAssets);
+            setAssets(parsed);
+            await setDoc(doc(db, 'settings', 'assets'), { items: parsed });
+          }
+        }
+
+        // 3. Fixed Expenses
+        const fixedDoc = await getDoc(doc(db, 'settings', 'fixedExpenses'));
+        if (fixedDoc.exists()) {
+          setFixedExpenses(fixedDoc.data().items);
+        } else {
+          const localFixed = localStorage.getItem('budget_fixed');
+          if (localFixed) {
+            const parsed = JSON.parse(localFixed);
+            setFixedExpenses(parsed);
+            await setDoc(doc(db, 'settings', 'fixedExpenses'), { items: parsed });
+          }
+        }
       } catch (e) {
         console.error(e);
-        alert('파이어베이스 연결 권한 에러! (Network 탭 또는 Firestore 규칙을 확인하세요)');
+        alert('데이터 로드 에러!');
       } finally {
         setLoading(false);
       }
@@ -218,7 +247,7 @@ export default function Page() {
       case 'home': return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
       case 'history': return <HistoryScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} onDelete={handleDelete} />;
       case 'stats': return <StatsScreen transactions={txs} />;
-      case 'fixed': return <FixedScreen onApply={handleSave} showAddFixed={showAddFixed} onCloseAddFixed={() => setShowAddFixed(false)} />;
+      case 'fixed': return <FixedScreen items={fixedExpenses} onItemsChange={handleFixedExpensesChange} onApply={handleSave} showAddFixed={showAddFixed} onCloseAddFixed={() => setShowAddFixed(false)} />;
       default: return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
     }
   };
