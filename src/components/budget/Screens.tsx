@@ -59,19 +59,10 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
   const hRatio = totalExpWho ? (hExp / totalExpWho) * 100 : 50;
   const wRatio = totalExpWho ? (wExp / totalExpWho) * 100 : 50;
 
-  // 계산된 자산
-  const savingSum = transactions.filter(t => t.type === 'transfer' && t.category === '저축').reduce((s, t) => s + t.amount, 0);
-  const investSum = transactions.filter(t => t.type === 'transfer' && t.category === '투자').reduce((s, t) => s + t.amount, 0);
-
-  const displayAssets = assets.map(a => {
-    if (a.id === 'savings') return { ...a, amount: a.amount + savingSum };
-    if (a.id === 'invest') return { ...a, amount: a.amount + investSum };
-    return a;
-  });
-
-  const totalAssets = displayAssets.filter(a => a.id !== 'loan').reduce((s, a) => s + a.amount, 0);
-  const loanAsset = displayAssets.find(a => a.id === 'loan');
-  const normalAssets = displayAssets.filter(a => a.id !== 'loan');
+  // 자산은 applyTransactionToAssets에서 이미 실시간 반영되므로 별도 계산 불필요
+  const totalAssets = assets.filter(a => a.id !== 'loan').reduce((s, a) => s + a.amount, 0);
+  const loanAsset = assets.find(a => a.id === 'loan');
+  const normalAssets = assets.filter(a => a.id !== 'loan');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');

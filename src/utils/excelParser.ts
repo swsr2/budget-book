@@ -23,8 +23,11 @@ export async function parseExcel(file: File): Promise<Omit<Transaction, 'id'>[]>
     // 3. 날짜 파싱 로직 강화
     let parsedDate = "";
     if (rawDate instanceof Date) {
-      // JS Date 객체인 경우
-      parsedDate = rawDate.toISOString().split('T')[0];
+      // JS Date 객체인 경우 — 로컬 시간 기준으로 변환 (UTC 변환 시 하루 밀림 방지)
+      const y = rawDate.getFullYear();
+      const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+      const d = String(rawDate.getDate()).padStart(2, '0');
+      parsedDate = `${y}-${m}-${d}`;
     } else if (typeof rawDate === 'number' && rawDate > 30000) {
       // 엑셀 시리얼 날짜인 경우 (1900년 이후 숫자로 표현됨)
       const dateObj = XLSX.SSF.parse_date_code(rawDate);

@@ -72,9 +72,9 @@ export default function Page() {
       // 출처 판단: 메모에 '예적금'이 있으면 예적금에서 차감, 아니면 계좌에서 차감
       const isFromSavings = tx.memo?.includes('예적금');
       const sourceId = isFromSavings ? 'savings' : 'bank';
-      
+
       updateAmount(sourceId, -tx.amount * factor);
-      
+
       if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
       if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
       if (tx.category === '부동산') updateAmount('realestate', tx.amount * factor);
@@ -111,7 +111,7 @@ export default function Page() {
         const ref = doc(db, 'transactions', tx.id);
         const { id, ...data } = tx;
         await updateDoc(ref, data);
-        
+
         setTxs(prev => prev.map(t => t.id === id ? tx : t));
         handleAssetsChange(nextAssets);
       } catch (e) {
@@ -122,9 +122,9 @@ export default function Page() {
         const { id, ...data } = tx;
         const docRef = await addDoc(txsCol, data);
         const newTx = { ...data, id: docRef.id as any };
-        
+
         setTxs(prev => [...prev, newTx]);
-        
+
         // Apply new effect
         const nextAssets = applyTransactionToAssets(newTx, 'add', assets);
         handleAssetsChange(nextAssets);
@@ -140,12 +140,12 @@ export default function Page() {
     const target = txs.find(t => t.id === id);
     try {
       await deleteDoc(doc(db, 'transactions', id));
-      
+
       if (target) {
         const nextAssets = applyTransactionToAssets(target, 'delete', assets);
         handleAssetsChange(nextAssets);
       }
-      
+
       setTxs(prev => prev.filter(t => t.id !== id));
       setShowAdd(false);
       setEditTarget(null);
@@ -180,7 +180,7 @@ export default function Page() {
         batch.set(newRef, item);
         const newTx = { ...item, id: newRef.id as any };
         inserted.push(newTx);
-        
+
         // Update assets for each item
         nextAssets = applyTransactionToAssets(newTx, 'add', nextAssets);
       });
