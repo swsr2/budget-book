@@ -13,6 +13,7 @@ const DEFAULT_ASSETS: AssetItem[] = [
   { id: 'cash', label: '현금 자산', emoji: '💵', amount: 0 },
   { id: 'savings', label: '예적금', emoji: '🏧', amount: 0 },
   { id: 'invest', label: '투자 자산', emoji: '📈', amount: 0 },
+  { id: 'pension', label: '연금', emoji: '👴', amount: 0 },
   { id: 'realestate', label: '부동산', emoji: '🏢', amount: 0 },
   { id: 'loan', label: '대출', emoji: '🏠', amount: 0 },
 ];
@@ -66,18 +67,28 @@ export default function Page() {
     if (tx.type === 'income') {
       updateAmount('bank', tx.amount * factor);
     } else if (tx.type === 'expense') {
-      // User requested: all expenses from 'bank'
       updateAmount('bank', -tx.amount * factor);
     } else if (tx.type === 'transfer') {
-      // 출처 판단: 메모에 '예적금'이 있으면 예적금에서 차감, 아니면 계좌에서 차감
-      const isFromSavings = tx.memo?.includes('예적금');
-      const sourceId = isFromSavings ? 'savings' : 'bank';
-
-      updateAmount(sourceId, -tx.amount * factor);
-
-      if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
-      if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
-      if (tx.category === '부동산') updateAmount('realestate', tx.amount * factor);
+      if (tx.category === '대출상환') {
+        // 계좌에서 돈이 나가고, 대출금(빚)이 줄어듦
+        updateAmount('bank', -tx.amount * factor);
+        updateAmount('loan', -tx.amount * factor);
+      } else if (tx.category === '자산회수') {
+        // 자산(예적금/투자/부동산/연금)에서 돈을 빼서 계좌로 넣음
+        updateAmount('bank', tx.amount * factor);
+        if (tx.memo?.includes('예적금') || tx.memo?.includes('저축')) updateAmount('savings', -tx.amount * factor);
+        else if (tx.memo?.includes('투자') || tx.memo?.includes('주식')) updateAmount('invest', -tx.amount * factor);
+        else if (tx.memo?.includes('부동산') || tx.memo?.includes('보증금') || tx.memo?.includes('집')) updateAmount('realestate', -tx.amount * factor);
+        else if (tx.memo?.includes('연금')) updateAmount('pension', -tx.amount * factor);
+        else updateAmount('invest', -tx.amount * factor); // 기본값은 투자에서 차감
+      } else {
+        // 일반 이체: 계좌에서 나가서 특정 자산으로 들어감
+        updateAmount('bank', -tx.amount * factor);
+        if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
+        if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
+        if (tx.category === '부동산') updateAmount('realestate', tx.amount * factor);
+        if (tx.category === '연금') updateAmount('pension', tx.amount * factor);
+      }
     }
     return next;
   };
