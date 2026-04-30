@@ -467,6 +467,9 @@ export function FixedScreen({ onApply, showAddFixed, onCloseAddFixed }: { onAppl
   const [editPayment, setEditPayment] = useState('신용카드');
   const [editMemo, setEditMemo] = useState('');
 
+  const [newType, setNewType] = useState('expense');
+  const [newLabel, setNewLabel] = useState('');
+  const [newAmount, setNewAmount] = useState('');
   const [newPayment, setNewPayment] = useState('신용카드');
   const [newMemo, setNewMemo] = useState('');
   const [newCategory, setNewCategory] = useState('');
