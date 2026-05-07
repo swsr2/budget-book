@@ -47,11 +47,14 @@ export const CATS_INCOME: Category[] = [
 
 export const CATS_TRANSFER: Category[] = [
   { id: '저축', icon: 'saving', bg: '#EBF2FF', fg: '#3182F6' },
+  { id: '예적금회수', icon: 'saving', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '투자', icon: 'stock', bg: '#FFF7EB', fg: '#F0AC00' },
+  { id: '투자회수', icon: 'stock', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '부동산', icon: 'home2', bg: '#F0F0F0', fg: '#666E7B' },
+  { id: '부동산회수', icon: 'home2', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '연금', icon: 'pension', bg: '#EBFAF5', fg: '#00B493' },
+  { id: '연금회수', icon: 'pension', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '대출상환', icon: 'money', bg: '#EBFAF5', fg: '#00B493' },
-  { id: '자산회수', icon: 'wallet', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '기타', icon: 'other', bg: '#F2F4F6', fg: '#8B95A1' },
 ];
 

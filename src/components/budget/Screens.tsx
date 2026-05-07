@@ -3,10 +3,12 @@ import { C, fmt, fmtShort, getCat, Transaction, CATS_EXPENSE, CATS_INCOME, CATS_
 import { Icon, CatIcon } from './Icons';
 
 function WhoTag({ who }: { who: string }) {
+  const isHusband = who === 'husband';
+  const isShared = who === 'shared';
   return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${who === 'husband' ? 'bg-[#ebf2ff] text-[#3182f6]' : 'bg-[#fceeff] text-[#c759d6]'
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isHusband ? 'bg-[#ebf2ff] text-[#3182f6]' : isShared ? 'bg-purple-100 text-purple-600' : 'bg-[#fceeff] text-[#c759d6]'
       }`}>
-      {who === 'husband' ? '남편' : '아내'}
+      {isHusband ? '남편' : isShared ? '공동' : '아내'}
     </span>
   );
 }
@@ -466,12 +468,14 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
   const [editAmount, setEditAmount] = useState('');
   const [editPayment, setEditPayment] = useState('신용카드');
   const [editMemo, setEditMemo] = useState('');
+  const [editDay, setEditDay] = useState('');
 
   const [newType, setNewType] = useState('expense');
   const [newLabel, setNewLabel] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newPayment, setNewPayment] = useState('신용카드');
   const [newMemo, setNewMemo] = useState('');
+  const [newDay, setNewDay] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const activeTotal = items.filter((i: any) => i.active).reduce((s: number, i: any) => s + i.amount, 0);
 
@@ -484,6 +488,7 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
     setEditAmount(String(item.amount)); 
     setEditPayment(item.payment || '신용카드');
     setEditMemo(item.memo || '');
+    setEditDay(item.day ? String(item.day) : '');
   }
   function saveEdit() {
     if (editIdx === null) return;
@@ -492,7 +497,8 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
       label: editLabel, 
       amount: parseInt(editAmount) || 0,
       payment: editPayment,
-      memo: editMemo
+      memo: editMemo,
+      day: parseInt(editDay) || null
     } : i));
     setEditIdx(null);
   }
@@ -507,6 +513,7 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
       category: newCategory,
       payment: newPayment,
       memo: newMemo,
+      day: parseInt(newDay) || null,
       icon: catObj.icon,
       bg: catObj.bg,
       fg: catObj.fg,
@@ -514,11 +521,22 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
     };
     persist([...items, newItem]);
     setNewLabel(''); setNewAmount(''); setNewCategory(''); setNewType('expense');
-    setNewPayment('신용카드'); setNewMemo('');
+    setNewPayment('신용카드'); setNewMemo(''); setNewDay('');
     onCloseAddFixed?.();
   }
   function apply() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
+
     items.filter((i: any) => i.active).forEach((item: any) => {
+      let applyDate = new Date().toISOString().slice(0, 10);
+      if (item.day) {
+        const dStr = String(item.day).padStart(2, '0');
+        // 이번 달을 기준으로 날짜 생성
+        applyDate = `${currentYear}-${currentMonth}-${dStr}`;
+      }
+
       onApply({
         type: item.type || 'expense', 
         category: item.category, 
@@ -526,7 +544,7 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
         who: 'shared', 
         payment: item.payment || '계좌이체', 
         memo: item.memo ? `${item.label} (${item.memo})` : item.label, 
-        date: new Date().toISOString().slice(0, 10), 
+        date: applyDate, 
         id: Date.now() + item.id + ""
       });
     });
@@ -568,14 +586,17 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
             </div>
 
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="상세내용 (예: 관리비)" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
-            <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="금액" className="w-full p-4 rounded-xl bg-gray-50 mb-3 outline-none font-medium" />
+            <div className="flex gap-2 mb-3">
+              <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="금액" className="flex-1 p-4 rounded-xl bg-gray-50 outline-none font-medium" />
+              <input type="number" value={newDay} onChange={e => setNewDay(e.target.value)} placeholder="결제일(예: 25)" className="w-28 p-4 rounded-xl bg-gray-50 outline-none font-medium text-center" min="1" max="31" />
+            </div>
             
             <div className="flex gap-2 mb-3">
               {['신용카드', '체크카드', '현금', '계좌이체'].map(p => (
                 <button key={p} onClick={() => setNewPayment(p)} className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all ${newPayment === p ? 'bg-[var(--foreground)] text-white border-[var(--foreground)]' : 'bg-white border-gray-100 text-gray-400'}`}>{p}</button>
               ))}
             </div>
-            <input value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="결제일/카드명 등 (선택)" className="w-full p-4 rounded-xl bg-gray-50 mb-5 outline-none font-medium text-[14px]" />
+            <input value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="카드명/이체 메모 등 (선택)" className="w-full p-4 rounded-xl bg-gray-50 mb-5 outline-none font-medium text-[14px]" />
 
             <button onClick={addNew} className="w-full py-4 rounded-xl font-bold text-white" style={{ background: 'var(--primary-gradient)' }}>추가하기</button>
           </div>
@@ -591,8 +612,9 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
                 <div className="flex flex-col gap-2">
                   <input value={editLabel} onChange={e => setEditLabel(e.target.value)} placeholder="항목명" className="text-[14px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
                   <div className="flex gap-2">
-                    <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} placeholder="금액" className="flex-1 text-[14px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
-                    <select value={editPayment} onChange={e => setEditPayment(e.target.value)} className="w-24 text-[12px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50">
+                    <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} placeholder="금액" className="flex-1 min-w-0 text-[14px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50" />
+                    <input type="number" value={editDay} onChange={e => setEditDay(e.target.value)} placeholder="일" className="w-[52px] text-[14px] font-bold p-2.5 text-center rounded-xl border border-gray-200 outline-none bg-gray-50 shrink-0" min="1" max="31" />
+                    <select value={editPayment} onChange={e => setEditPayment(e.target.value)} className="w-[90px] text-[12px] font-bold p-2.5 rounded-xl border border-gray-200 outline-none bg-gray-50 shrink-0">
                       {['신용카드', '체크카드', '현금', '계좌이체'].map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
@@ -615,6 +637,7 @@ export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onClo
                     <div className="flex-1 min-w-0">
                       <div className={`text-[14px] font-bold mb-0.5 ${item.active ? 'text-[var(--foreground)]' : 'text-gray-400'}`}>{item.label}</div>
                       <div className="text-[11px] text-gray-400">
+                        {item.day && <span className="text-[var(--primary)] font-bold mr-1">매월 {item.day}일</span>}
                         {item.payment && <span className="text-[var(--primary)] font-bold mr-1">{item.payment}</span>}
                         {item.memo && <span className="mr-1">· {item.memo}</span>}
                         <span>[{item.type === 'transfer' ? '이체' : '지출'}] {item.category}</span>
@@ -707,7 +730,12 @@ export function TxFormModal({
 
           <div className="flex bg-gray-100 rounded-[14px] p-1.5 mb-6">
             {[['expense', '지출'], ['income', '수입'], ['transfer', '이체']].map(([v, l]) => (
-              <button key={v} onClick={() => { setType(v); if (!initialTx || initialTx.type !== v) { setCat(''); } }}
+                <button key={v} onClick={() => { 
+                  setType(v); 
+                  if (!initialTx || initialTx.type !== v) { setCat(''); }
+                  if (v === 'transfer' && payment !== '계좌이체') { setPay('계좌이체'); }
+                  if (v === 'income' && (payment === '신용카드' || payment === '체크카드')) { setPay('계좌이체'); }
+                }}
                 className={`flex-1 py-2.5 rounded-[10px] font-bold text-[14px] transition-all duration-200 ${type === v ? 'bg-white shadow-sm text-[var(--foreground)]' : 'text-[var(--text-muted)]'}`}>
                 {l}
               </button>
@@ -733,14 +761,16 @@ export function TxFormModal({
             </div>
           </div>
 
-          <div className="flex gap-2 flex-wrap mb-6">
-            {PAYMENTS.map(p => (
-              <button key={p} onClick={() => setPay(p)}
-                className={`px-4 py-2 rounded-full font-bold text-[13px] transition-all border ${payment === p ? 'border-[var(--foreground)] bg-[var(--foreground)] text-white shadow-md' : 'border-gray-200 bg-white text-[var(--text-muted)]'}`}>
-                {p}
-              </button>
-            ))}
-          </div>
+          {type !== 'transfer' && (
+            <div className="flex gap-2 flex-wrap mb-6">
+              {(type === 'income' ? ['계좌이체', '현금'] : PAYMENTS).map(p => (
+                <button key={p} onClick={() => setPay(p)}
+                  className={`px-4 py-2 rounded-full font-bold text-[13px] transition-all border ${payment === p ? 'border-[var(--foreground)] bg-[var(--foreground)] text-white shadow-md' : 'border-gray-200 bg-white text-[var(--text-muted)]'}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-3 mb-6">
             {[['husband', '남편', '👨'], ['wife', '아내', '👩'], ['shared', '공동', '👫']].map(([v, l, emoji]) => (

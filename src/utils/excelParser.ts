@@ -23,26 +23,53 @@ export async function parseExcel(file: File): Promise<Omit<Transaction, 'id'>[]>
     // 3. 날짜 파싱 로직 강화
     let parsedDate = "";
     if (rawDate instanceof Date) {
-      // JS Date 객체인 경우 — 로컬 시간 기준으로 변환 (UTC 변환 시 하루 밀림 방지)
-      const y = rawDate.getFullYear();
-      const m = String(rawDate.getMonth() + 1).padStart(2, '0');
-      const d = String(rawDate.getDate()).padStart(2, '0');
+      // 엑셀 Date 객체 타임존/밀림 이슈 방지를 위해 12시간을 더한 후 UTC 기준으로 파싱
+      const adjustedDate = new Date(rawDate.getTime() + 12 * 60 * 60 * 1000);
+      const y = adjustedDate.getUTCFullYear();
+      const m = String(adjustedDate.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(adjustedDate.getUTCDate()).padStart(2, '0');
       parsedDate = `${y}-${m}-${d}`;
     } else if (typeof rawDate === 'number' && rawDate > 30000) {
       // 엑셀 시리얼 날짜인 경우 (1900년 이후 숫자로 표현됨)
       const dateObj = XLSX.SSF.parse_date_code(rawDate);
       parsedDate = `${dateObj.y}-${String(dateObj.m).padStart(2, '0')}-${String(dateObj.d).padStart(2, '0')}`;
     } else {
-      // 문자열인 경우
-      parsedDate = String(rawDate).trim().replace(/\//g, '-').replace(/\./g, '-');
+      // 문자열인 경우 매우 유연하게 파싱
+      const str = String(rawDate).trim();
       
-      // '24-02-15' -> '2024-02-15' 보정
-      if (/^\d{2}-\d{2}-\d{2}$/.test(parsedDate)) {
-        parsedDate = '20' + parsedDate;
-      }
-      // '02-15' -> '2026-02-15' 보정 (연도가 없는 경우 현재 연도 추가)
-      if (/^\d{1,2}-\d{1,2}$/.test(parsedDate)) {
-        parsedDate = `${new Date().getFullYear()}-${parsedDate}`;
+      if (/^\d{8}$/.test(str)) {
+        // '20260520' 같은 8자리 연속 숫자
+        parsedDate = `${str.substring(0,4)}-${str.substring(4,6)}-${str.substring(6,8)}`;
+      } else {
+        // 숫자만 모두 추출 (예: '2026년 5월 20일' -> [2026, 5, 20])
+        const parts = str.match(/\d+/g);
+        if (parts) {
+          const currentYear = new Date().getFullYear();
+          let y = currentYear, m = 1, d = 1;
+
+          if (parts.length >= 3) {
+            y = parseInt(parts[0]);
+            if (y < 100) y += 2000; // '24' -> 2024
+            m = parseInt(parts[1]);
+            d = parseInt(parts[2]);
+          } else if (parts.length === 2) {
+            // 연도가 생략된 경우 (예: '5/20', '05월 20일')
+            m = parseInt(parts[0]);
+            d = parseInt(parts[1]);
+          } else if (parts.length === 1 && parts[0].length === 4) {
+             // '0520' 같은 4자리 연속 숫자
+             m = parseInt(parts[0].substring(0,2));
+             d = parseInt(parts[0].substring(2,4));
+          } else {
+             // 그 외의 경우 (예를 들어 '20일' 등)
+             d = parseInt(parts[0]);
+             m = new Date().getMonth() + 1;
+          }
+
+          parsedDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        } else {
+          parsedDate = str;
+        }
       }
     }
     

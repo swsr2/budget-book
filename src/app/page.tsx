@@ -19,6 +19,10 @@ const DEFAULT_ASSETS: AssetItem[] = [
   { id: 'loan', label: '대출', emoji: '🏠', amount: 0 },
 ];
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+const COLL_TXS = IS_DEV ? 'transactions_dev' : 'transactions';
+const COLL_SETTINGS = IS_DEV ? 'settings_dev' : 'settings';
+
 export default function Page() {
   const [tab, setTab] = useState('home');
   const [txs, setTxs] = useState<Transaction[]>([]);
@@ -35,7 +39,7 @@ export default function Page() {
   const handleAssetsChange = async (newAssets: AssetItem[]) => {
     setAssets(newAssets);
     try {
-      await setDoc(doc(db, 'settings', 'assets'), { items: newAssets });
+      await setDoc(doc(db, COLL_SETTINGS, 'assets'), { items: newAssets });
     } catch (e) {
       console.error("자산 저장 실패:", e);
     }
@@ -44,7 +48,7 @@ export default function Page() {
   const handleFixedExpensesChange = async (newItems: any[]) => {
     setFixedExpenses(newItems);
     try {
-      await setDoc(doc(db, 'settings', 'fixedExpenses'), { items: newItems });
+      await setDoc(doc(db, COLL_SETTINGS, 'fixedExpenses'), { items: newItems });
     } catch (e) {
       console.error("고정비 저장 실패:", e);
     }
@@ -67,25 +71,39 @@ export default function Page() {
     };
 
     if (tx.type === 'income') {
-      updateAmount('bank', tx.amount * factor);
-    } else if (tx.type === 'expense') {
-      updateAmount('bank', -tx.amount * factor);
-    } else if (tx.type === 'transfer') {
-      if (tx.category === '대출상환') {
-        // 계좌에서 돈이 나가고, 대출금(빚)이 줄어듦
-        updateAmount('bank', -tx.amount * factor);
-        updateAmount('loan', -tx.amount * factor);
-      } else if (tx.category === '자산회수') {
-        // 자산(예적금/투자/부동산/연금)에서 돈을 빼서 계좌로 넣음
-        updateAmount('bank', tx.amount * factor);
-        if (tx.memo?.includes('예적금') || tx.memo?.includes('저축')) updateAmount('savings', -tx.amount * factor);
-        else if (tx.memo?.includes('투자') || tx.memo?.includes('주식')) updateAmount('invest', -tx.amount * factor);
-        else if (tx.memo?.includes('부동산') || tx.memo?.includes('보증금') || tx.memo?.includes('집')) updateAmount('realestate', -tx.amount * factor);
-        else if (tx.memo?.includes('연금')) updateAmount('pension', -tx.amount * factor);
-        else updateAmount('invest', -tx.amount * factor); // 기본값은 투자에서 차감
+      if (tx.payment === '현금') {
+        updateAmount('cash', tx.amount * factor);
       } else {
-        // 일반 이체: 계좌에서 나가서 특정 자산으로 들어감
+        updateAmount('bank', tx.amount * factor);
+      }
+    } else if (tx.type === 'expense') {
+      if (tx.payment === '현금') {
+        updateAmount('cash', -tx.amount * factor);
+      } else {
         updateAmount('bank', -tx.amount * factor);
+      }
+    } else if (tx.type === 'transfer') {
+      const sourceAssetId = tx.payment === '현금' ? 'cash' : 'bank';
+
+      if (tx.category === '대출상환') {
+        // Source에서 돈이 나가고, 대출금(빚)이 줄어듦
+        updateAmount(sourceAssetId, -tx.amount * factor);
+        updateAmount('loan', -tx.amount * factor);
+      } else if (tx.category === '예적금회수') {
+        updateAmount(sourceAssetId, tx.amount * factor);
+        updateAmount('savings', -tx.amount * factor);
+      } else if (tx.category === '투자회수') {
+        updateAmount(sourceAssetId, tx.amount * factor);
+        updateAmount('invest', -tx.amount * factor);
+      } else if (tx.category === '부동산회수') {
+        updateAmount(sourceAssetId, tx.amount * factor);
+        updateAmount('realestate', -tx.amount * factor);
+      } else if (tx.category === '연금회수') {
+        updateAmount(sourceAssetId, tx.amount * factor);
+        updateAmount('pension', -tx.amount * factor);
+      } else {
+        // 일반 이체: Source에서 나가서 특정 자산으로 들어감
+        updateAmount(sourceAssetId, -tx.amount * factor);
         if (tx.category === '저축') updateAmount('savings', tx.amount * factor);
         if (tx.category === '투자') updateAmount('invest', tx.amount * factor);
         if (tx.category === '부동산') updateAmount('realestate', tx.amount * factor);
@@ -95,7 +113,7 @@ export default function Page() {
     return next;
   };
 
-  const txsCol = collection(db, 'transactions');
+  const txsCol = collection(db, COLL_TXS);
 
   useEffect(() => {
     async function fetchData() {
@@ -106,20 +124,32 @@ export default function Page() {
         setTxs(data);
 
         // 2. Assets (Firestore -> LocalStorage Migration -> Default)
-        const assetsDoc = await getDoc(doc(db, 'settings', 'assets'));
+        const assetsDoc = await getDoc(doc(db, COLL_SETTINGS, 'assets'));
+        let loadedAssets = DEFAULT_ASSETS;
+
         if (assetsDoc.exists()) {
-          setAssets(assetsDoc.data().items);
+          loadedAssets = assetsDoc.data().items;
         } else {
           const localAssets = localStorage.getItem('budget_assets');
           if (localAssets) {
-            const parsed = JSON.parse(localAssets);
-            setAssets(parsed);
-            await setDoc(doc(db, 'settings', 'assets'), { items: parsed });
+            loadedAssets = JSON.parse(localAssets);
           }
         }
 
+        // 항상 DEFAULT_ASSETS와 병합하여 누락된 자산(부동산, 대출 등)이 없도록 보장
+        const mergedAssets = DEFAULT_ASSETS.map(def => {
+          const found = loadedAssets.find((a: AssetItem) => a.id === def.id);
+          return found ? found : def;
+        });
+        
+        setAssets(mergedAssets);
+        // 만약 로컬에만 있었거나 병합이 발생했다면 DB에 저장
+        if (!assetsDoc.exists() || loadedAssets.length !== DEFAULT_ASSETS.length) {
+          await setDoc(doc(db, COLL_SETTINGS, 'assets'), { items: mergedAssets });
+        }
+
         // 3. Fixed Expenses
-        const fixedDoc = await getDoc(doc(db, 'settings', 'fixedExpenses'));
+        const fixedDoc = await getDoc(doc(db, COLL_SETTINGS, 'fixedExpenses'));
         if (fixedDoc.exists()) {
           setFixedExpenses(fixedDoc.data().items);
         } else {
@@ -127,7 +157,7 @@ export default function Page() {
           if (localFixed) {
             const parsed = JSON.parse(localFixed);
             setFixedExpenses(parsed);
-            await setDoc(doc(db, 'settings', 'fixedExpenses'), { items: parsed });
+            await setDoc(doc(db, COLL_SETTINGS, 'fixedExpenses'), { items: parsed });
           }
         }
       } catch (e) {
@@ -148,7 +178,7 @@ export default function Page() {
         // 2. Apply new effect
         nextAssets = applyTransactionToAssets(tx, 'add', nextAssets);
 
-        const ref = doc(db, 'transactions', tx.id);
+        const ref = doc(db, COLL_TXS, tx.id);
         const { id, ...data } = tx;
         await updateDoc(ref, data);
 
@@ -179,7 +209,7 @@ export default function Page() {
   async function handleDelete(id: string) {
     const target = txs.find(t => t.id === id);
     try {
-      await deleteDoc(doc(db, 'transactions', id));
+      await deleteDoc(doc(db, COLL_TXS, id));
 
       if (target) {
         const nextAssets = applyTransactionToAssets(target, 'delete', assets);
