@@ -33,6 +33,7 @@ export const CATS_EXPENSE: Category[] = [
   { id: '경조사', icon: 'gift', bg: '#FFF7EB', fg: '#F0AC00' },
   { id: '용돈', icon: 'wallet', bg: '#FFF0EB', fg: '#F06A00' },
   { id: '세금/공과금', icon: 'tax', bg: '#F2F4F6', fg: '#8B95A1' },
+  { id: '개인사업', icon: 'shop', bg: '#EBF2FF', fg: '#3182F6' },
   { id: '기타', icon: 'other', bg: '#F2F4F6', fg: '#8B95A1' },
 ];
 
@@ -42,6 +43,7 @@ export const CATS_INCOME: Category[] = [
   { id: '투자소득', icon: 'stock', bg: '#FFF7EB', fg: '#F0AC00' },
   { id: '보너스', icon: 'bonus', bg: '#FFEDF5', fg: '#F04452' },
   { id: '환급금', icon: 'refund', bg: '#EBFAF5', fg: '#00B493' },
+  { id: '개인사업', icon: 'shop', bg: '#F9EBF9', fg: '#A259CC' },
   { id: '기타소득', icon: 'other', bg: '#F2F4F6', fg: '#8B95A1' },
 ];
 

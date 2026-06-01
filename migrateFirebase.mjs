@@ -51,7 +51,7 @@ function mapCategory(docData) {
   if (cat === '자기계발') return { type: 'expense', category: '교육' };
   if (cat === '미용') return { type: 'expense', category: '쇼핑/미용' };
   
-  const validExpenses = ['주거', '통신', '보험', '외식', '마트/편의점', '생활편의', '문화/여가', '여행', '교육', '육아', '교통', '의료/건강', '쇼핑/미용', '경조사', '용돈', '세금/공과금', '기타'];
+  const validExpenses = ['주거', '통신', '보험', '외식', '마트/편의점', '생활편의', '문화/여가', '여행', '교육', '육아', '교통', '의료/건강', '쇼핑/미용', '경조사', '용돈', '세금/공과금', '개인사업', '기타'];
   
   if (validExpenses.includes(cat)) {
     return { type: 'expense', category: cat };
