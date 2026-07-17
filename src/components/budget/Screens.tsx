@@ -202,10 +202,7 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
 
 export function HistoryScreen({ transactions, onRowClick, onDateSelect, onDelete }: { transactions: Transaction[], onRowClick?: (tx: Transaction) => void, onDateSelect?: (date: string) => void, onDelete?: (id: string) => void }) {
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
-  const [currentDate, setCurrentDate] = useState(() => {
-    const dates = transactions.map(t => t.date).sort();
-    return dates.length > 0 ? new Date(dates[dates.length - 1]) : new Date();
-  });
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const formattedMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -229,7 +226,7 @@ export function HistoryScreen({ transactions, onRowClick, onDateSelect, onDelete
   monthTxs.forEach(t => {
     if (!dayMap[t.date]) dayMap[t.date] = { inc: 0, exp: 0 };
     if (t.type === 'income') dayMap[t.date].inc += t.amount;
-    else dayMap[t.date].exp += t.amount;
+    else if (t.type === 'expense') dayMap[t.date].exp += t.amount;
   });
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -348,10 +345,7 @@ export function StatsScreen({ transactions }: { transactions: Transaction[] }) {
   const [period, setPeriod] = useState<'month' | 'year'>('month');
   const [mode, setMode] = useState('expense');
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
-  const [currentDate, setCurrentDate] = useState(() => {
-    const dates = transactions.map(t => t.date).sort();
-    return dates.length > 0 ? new Date(dates[dates.length - 1]) : new Date();
-  });
+  const [currentDate, setCurrentDate] = useState(() => new Date());
 
   const moveMonth = (dir: number) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + dir, 1));
   const moveYear = (dir: number) => setCurrentDate(new Date(currentDate.getFullYear() + dir, currentDate.getMonth(), 1));
