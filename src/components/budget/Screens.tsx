@@ -54,12 +54,6 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
 }) {
   const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const hExp = transactions.filter(t => t.type === 'expense' && t.who === 'husband').reduce((s, t) => s + t.amount, 0);
-  const wExp = transactions.filter(t => t.type === 'expense' && t.who === 'wife').reduce((s, t) => s + t.amount, 0);
-
-  const totalExpWho = hExp + wExp;
-  const hRatio = totalExpWho ? (hExp / totalExpWho) * 100 : 50;
-  const wRatio = totalExpWho ? (wExp / totalExpWho) * 100 : 50;
 
   // 자산 계산: 금융자산(통장/현금/예적금/투자/연금), 부동산, 대출, 순자산
   const realEstateAsset = assets.find(a => a.id === 'realestate');
@@ -180,7 +174,7 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
           </div>
         </div>
 
-        <div className="flex gap-3 mb-7 w-full">
+        <div className="flex gap-3 mb-2 w-full">
           <div className="flex-1 rounded-[24px] pt-5 pb-6 px-5 text-white shadow-xl shadow-[var(--primary)]/30 relative overflow-hidden group" style={{ background: 'var(--primary-gradient)' }}>
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/20 rounded-full blur-[20px] group-hover:scale-110 transition-transform duration-500"></div>
             <div className="text-[13px] font-medium text-white/80 mb-2">총 수입</div>
@@ -189,33 +183,6 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
           <div className="flex-1 rounded-[24px] bg-[#f8f9fa] border border-[#e5e8eb] pt-5 pb-6 px-5 text-[var(--foreground)] relative overflow-hidden">
             <div className="text-[13px] font-semibold text-[var(--text-muted)] mb-2">총 지출</div>
             <div className="text-[22px] font-bold tracking-tight">{fmt(expense)}원</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[24px] p-5 border border-[var(--border)] shadow-sm w-full">
-          <div className="flex justify-between items-end mb-4">
-            <span className="text-[14px] font-bold text-[var(--foreground)]">누가 더 많이 썼을까?</span>
-            <span className="text-[20px] select-none">💑</span>
-          </div>
-          <div className="flex justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[16px]">👨</div>
-              <div>
-                <div className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">남편</div>
-                <div className="text-[14px] font-bold text-[#3182f6]">{fmt(hExp)}원</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-right flex-row-reverse">
-              <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-[16px]">👩</div>
-              <div>
-                <div className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">아내</div>
-                <div className="text-[14px] font-bold text-[#c759d6]">{fmt(wExp)}원</div>
-              </div>
-            </div>
-          </div>
-          <div className="h-3.5 w-full bg-gray-100 rounded-full flex overflow-hidden shadow-inner p-0.5 gap-0.5">
-            <div className="h-full bg-[#3182f6] rounded-full transition-all duration-1000 ease-out" style={{ width: `${hRatio}%` }}></div>
-            <div className="h-full bg-[#c759d6] rounded-full transition-all duration-1000 ease-out" style={{ width: `${wRatio}%` }}></div>
           </div>
         </div>
       </div>
@@ -469,23 +436,86 @@ export function StatsScreen({ transactions }: { transactions: Transaction[] }) {
       </div>
 
       <div className="mx-4 sm:mx-6 rounded-[28px] bg-white p-5 shadow-sm">
-        <h3 className="text-[15px] font-extrabold text-[var(--foreground)] mb-4 ml-1 border-b border-[var(--border)] pb-3">항목별 상세</h3>
-        {rows.map((row, i) => (
-          <div key={row.id} className={`flex items-center gap-4 py-3.5 ${i < rows.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
-            <CatIcon cat={row} size={42} />
-            <div className="flex-1">
-              <div className="flex justify-between mb-1.5">
-                <span className="text-[14px] font-bold text-[var(--foreground)]">{row.id}</span>
-                <span className={`text-[14px] font-bold ${mode === 'expense' ? 'text-[var(--foreground)]' : 'text-[var(--primary)]'}`}>{fmt(row.amount)}원</span>
+        <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-3">
+          <h3 className="text-[15px] font-extrabold text-[var(--foreground)] ml-1">카테고리별 상세</h3>
+          <span className="text-[11px] text-[var(--text-muted)] font-medium">터치 시 상세 내역 펼치기</span>
+        </div>
+        
+        {rows.map((row, i) => {
+          const isExpanded = expandedCat === row.id;
+          const catTxList = filtered
+            .filter(t => t.category === row.id)
+            .sort((a, b) => b.date.localeCompare(a.date));
+
+          return (
+            <div key={row.id} className={`py-3.5 ${i < rows.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
+              {/* 카테고리 헤더 (아코디언 토글) */}
+              <div 
+                onClick={() => setExpandedCat(isExpanded ? null : row.id)}
+                className="flex items-center gap-3.5 cursor-pointer select-none active:opacity-70 transition-opacity"
+              >
+                <CatIcon cat={row} size={42} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between mb-1.5 items-center">
+                    <span className="text-[14px] font-bold text-[var(--foreground)] flex items-center gap-1.5 truncate">
+                      {row.id}
+                      <span className="text-[10px] text-gray-400 font-normal">({catTxList.length}건)</span>
+                    </span>
+                    <span className={`text-[14px] font-bold ${mode === 'expense' ? 'text-[var(--foreground)]' : 'text-[var(--primary)]'}`}>
+                      {fmt(row.amount)}원
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full transition-all duration-1000 ease-out"
+                      style={{ background: PIE_COLORS[i % PIE_COLORS.length], width: `${row.pct}%` }} 
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 pl-1">
+                  <span className="text-[13px] font-bold text-[var(--text-muted)] min-w-[36px] text-right">
+                    {row.pct.toFixed(0)}%
+                  </span>
+                  <span className={`text-[12px] text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                    ▼
+                  </span>
+                </div>
               </div>
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-1000 ease-out"
-                  style={{ background: PIE_COLORS[i % PIE_COLORS.length], width: `${row.pct}%` }} />
-              </div>
+
+              {/* 아코디언 상세 내역 리스트 */}
+              {isExpanded && (
+                <div className="mt-3.5 pt-3 border-t border-dashed border-gray-200 bg-gray-50/70 rounded-2xl px-3.5 py-2.5 animate-[fadeIn_0.2s_ease]">
+                  <div className="space-y-2.5">
+                    {catTxList.map((tx, idx) => (
+                      <div key={tx.id || idx} className="flex justify-between items-center text-[12px] border-b border-gray-100 last:border-none pb-2 last:pb-0">
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="font-bold text-[var(--foreground)] truncate">
+                            {tx.memo || '내용 없음'}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
+                            <span>{tx.date}</span>
+                            <span>•</span>
+                            <span className="bg-white px-1.5 py-0.5 rounded border border-gray-200/60 font-medium">
+                              {tx.payment}
+                            </span>
+                            {tx.who && (
+                              <span className="text-gray-400">
+                                ({tx.who === 'husband' ? '남편' : tx.who === 'wife' ? '아내' : '공용'})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="font-extrabold text-[var(--foreground)] whitespace-nowrap pl-2">
+                          {fmt(tx.amount)}원
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <span className="text-[13px] font-bold text-[var(--text-muted)] w-10 text-right">{row.pct.toFixed(0)}%</span>
-          </div>
-        ))}
+          );
+        })}
         {rows.length === 0 && <div className="text-center py-6 text-gray-400 text-sm">내역이 없습니다.</div>}
       </div>
     </div>
