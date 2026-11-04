@@ -61,9 +61,17 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
   const hRatio = totalExpWho ? (hExp / totalExpWho) * 100 : 50;
   const wRatio = totalExpWho ? (wExp / totalExpWho) * 100 : 50;
 
-  // 자산은 applyTransactionToAssets에서 이미 실시간 반영되므로 별도 계산 불필요
-  const totalAssets = assets.filter(a => a.id !== 'loan').reduce((s, a) => s + a.amount, 0);
+  // 자산 계산: 금융자산(통장/현금/예적금/투자/연금), 부동산, 대출, 순자산
+  const realEstateAsset = assets.find(a => a.id === 'realestate');
   const loanAsset = assets.find(a => a.id === 'loan');
+  const financialAssets = assets.filter(a => a.id !== 'loan' && a.id !== 'realestate');
+  
+  const financialTotal = financialAssets.reduce((s, a) => s + a.amount, 0);
+  const realEstateTotal = realEstateAsset?.amount || 0;
+  const loanTotal = loanAsset?.amount || 0;
+  const totalAssets = financialTotal + realEstateTotal;
+  const netAssets = totalAssets - loanTotal;
+
   const normalAssets = assets.filter(a => a.id !== 'loan');
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -122,18 +130,53 @@ export function HomeScreen({ transactions, onUpload, assets, onAssetsChange, onD
         </div>
 
         {/* Assets Summary Header Card */}
-        <div className="mb-6 p-5 rounded-[28px] bg-gray-50/60 border border-gray-100 flex justify-between items-end">
-          <div>
-            <div className="text-[12px] text-[var(--text-muted)] font-bold mb-1 opacity-80">총 자산</div>
-            <div className="text-[26px] font-extrabold text-[var(--foreground)] tracking-tight leading-none">
-              {fmt(totalAssets)}<span className="text-[15px] font-bold ml-0.5">원</span>
+        <div className="mb-6 p-5 rounded-[28px] bg-gradient-to-br from-gray-50/90 via-purple-50/30 to-blue-50/40 border border-gray-100 shadow-sm">
+          {/* Main: 순자산 */}
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <div className="flex items-center gap-1.5 text-[12px] text-[var(--primary)] font-extrabold mb-1">
+                <span>💎</span>
+                <span>순자산</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-normal">(총자산 - 대출)</span>
+              </div>
+              <div className="text-[28px] font-black text-[var(--foreground)] tracking-tight leading-none">
+                {fmt(netAssets)}<span className="text-[16px] font-bold ml-0.5">원</span>
+              </div>
+            </div>
+            {loanTotal > 0 && (
+              <div className="text-right bg-red-50/80 px-2.5 py-1 rounded-xl border border-red-100">
+                <div className="text-[10px] text-red-500 font-bold">대출(부채)</div>
+                <div className="text-[12px] font-extrabold text-red-600">-{fmt(loanTotal)}원</div>
+              </div>
+            )}
+          </div>
+
+          {/* Sub Grid: 금융자산 vs 부동산 */}
+          <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-gray-200/60">
+            <div className="bg-white/90 p-3 rounded-2xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] font-bold mb-1">
+                <span className="flex items-center gap-1">🏦 금융자산</span>
+              </div>
+              <div className="text-[16px] font-extrabold text-blue-600 tracking-tight">
+                {fmt(financialTotal)}<span className="text-[12px] font-bold ml-0.5 text-gray-500">원</span>
+              </div>
+              <div className="text-[10px] text-gray-400 mt-0.5 truncate">예적금·투자·계좌 등</div>
+            </div>
+
+            <div className="bg-white/90 p-3 rounded-2xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] font-bold mb-1">
+                <span className="flex items-center gap-1">🏠 부동산</span>
+              </div>
+              <div className="text-[16px] font-extrabold text-purple-600 tracking-tight">
+                {fmt(realEstateTotal)}<span className="text-[12px] font-bold ml-0.5 text-gray-500">원</span>
+              </div>
+              <div className="text-[10px] text-gray-400 mt-0.5 truncate">실물 부동산 자산</div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[11px] text-[var(--text-muted)] font-bold mb-0.5 opacity-60">순자산 (자산-대출)</div>
-            <div className="text-[14px] font-extrabold text-[var(--foreground)] opacity-70">
-              {fmt(totalAssets - (loanAsset?.amount || 0))}원
-            </div>
+
+          <div className="mt-2.5 pt-2 flex justify-between items-center text-[11px] text-[var(--text-muted)] opacity-70 px-1">
+            <span>총 자산 (금융 + 부동산)</span>
+            <span className="font-bold text-[var(--foreground)]">{fmt(totalAssets)}원</span>
           </div>
         </div>
 
