@@ -115,4 +115,5 @@ export type Transaction = {
   who: string;
   payment: string;
   memo: string;
+  importedAt?: string; // 엑셀 업로드 일시 (되돌리기 / 삭제 용이)
 };

@@ -90,13 +90,26 @@ export async function parseExcel(file: File): Promise<Omit<Transaction, 'id'>[]>
     const whoVar = (String(rawWho).includes('아내') || String(rawWho).includes('wife')) ? 'wife' : 
                    (String(rawWho).includes('공용') || String(rawWho).includes('shared') || String(rawWho).includes('공동')) ? 'shared' : 'husband';
     
+    // 결제수단 정규화 (은행/계좌/이체 등 포함 시 '계좌이체'로 맵핑)
+    const payStr = String(rawPayment).trim();
+    let paymentVar = payStr;
+    if (payStr.includes('은행') || payStr.includes('계좌') || payStr.includes('이체') || payStr.includes('통장') || payStr.includes('송금')) {
+      paymentVar = '계좌이체';
+    } else if (payStr.includes('체크')) {
+      paymentVar = '체크카드';
+    } else if (payStr.includes('카드')) {
+      paymentVar = '신용카드';
+    } else if (payStr.includes('현금')) {
+      paymentVar = '현금';
+    }
+
     transactions.push({
       date: parsedDate,
       type: typeVar,
       category: String(rawCat),
       amount: Math.abs(amountNum),
       memo: String(rawMemo),
-      payment: String(rawPayment),
+      payment: paymentVar,
       who: whoVar
     });
   }

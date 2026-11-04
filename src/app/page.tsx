@@ -245,10 +245,13 @@ export default function Page() {
       const inserted: Transaction[] = [];
       let nextAssets = [...assets.map(a => ({ ...a }))];
 
+      const nowIso = new Date().toISOString();
+
       previewData.forEach(item => {
         const newRef = doc(txsCol);
-        batch.set(newRef, item);
-        const newTx = { ...item, id: newRef.id as any };
+        const dataToSave = { ...item, importedAt: nowIso };
+        batch.set(newRef, dataToSave);
+        const newTx = { ...dataToSave, id: newRef.id as any };
         inserted.push(newTx);
 
         // Update assets for each item
