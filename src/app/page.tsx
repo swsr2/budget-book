@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { HomeScreen, HistoryScreen, StatsScreen, FixedScreen, TxFormModal, AssetItem } from '@/components/budget/Screens';
+import { HomeScreen, HistoryScreen, StatsScreen, ReportScreen, FixedScreen, TxFormModal, AssetItem } from '@/components/budget/Screens';
 import { Transaction } from '@/components/budget/Constants';
-import { Home, CalendarDays, ScrollText, PieChart, ArrowLeftRight, Plus } from 'lucide-react';
+import { Home, CalendarDays, ScrollText, PieChart, TrendingUp, ArrowLeftRight, Plus } from 'lucide-react';
 import { parseExcel } from '@/utils/excelParser';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
@@ -280,6 +280,7 @@ export default function Page() {
       case 'home': return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
       case 'history': return <HistoryScreen transactions={txs} onRowClick={handleRowClick} onDateSelect={setSelectedDate} onDelete={handleDelete} />;
       case 'stats': return <StatsScreen transactions={txs} />;
+      case 'report': return <ReportScreen transactions={txs} />;
       case 'fixed': return <FixedScreen items={fixedExpenses} onItemsChange={handleFixedExpensesChange} onApply={handleSave} showAddFixed={showAddFixed} onCloseAddFixed={() => setShowAddFixed(false)} />;
       default: return <HomeScreen transactions={txs} onUpload={handleExcelSelect} assets={assets} onAssetsChange={handleAssetsChange} onDelete={handleDelete} />;
     }
@@ -289,6 +290,7 @@ export default function Page() {
     { id: 'home', label: '홈', icon: Home },
     { id: 'history', label: '내역', icon: CalendarDays },
     { id: 'stats', label: '통계', icon: PieChart },
+    { id: 'report', label: '리포트', icon: TrendingUp },
     { id: 'fixed', label: '고정비', icon: ArrowLeftRight },
   ];
 

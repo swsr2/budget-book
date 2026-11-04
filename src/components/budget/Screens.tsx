@@ -522,6 +522,297 @@ export function StatsScreen({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
+// ----------------------------------------------------
+// 신규: ReportScreen (토스 스타일 스마트 리포트 탭)
+// ----------------------------------------------------
+export function ReportScreen({ transactions }: { transactions: Transaction[] }) {
+  const [selectedCat, setSelectedCat] = useState<string>('all');
+  const [year, setYear] = useState(() => new Date().getFullYear());
+
+  // 1. 해당 연도의 지출 데이터만 필터링
+  const expenseTxs = transactions.filter(t => t.type === 'expense' && t.date.startsWith(`${year}-`));
+
+  // 2. 월별 리스트 (01월 ~ 12월) 생성
+  const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+  
+  // 현재/최근 월 파악
+  const thisMonthStr = `${year}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const lastMonthDate = new Date(year, new Date().getMonth() - 1, 1);
+  const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+  // 이번 달 / 지난 달 지출
+  const thisMonthTxs = transactions.filter(t => t.type === 'expense' && t.date.startsWith(thisMonthStr));
+  const lastMonthTxs = transactions.filter(t => t.type === 'expense' && t.date.startsWith(lastMonthStr));
+
+  // 카테고리별 지난달 vs 이번달 비교 (가장 줄여야 할 지출 1위 찾기)
+  const thisCatSum: Record<string, number> = {};
+  thisMonthTxs.forEach(t => { thisCatSum[t.category] = (thisCatSum[t.category] || 0) + t.amount; });
+
+  const lastCatSum: Record<string, number> = {};
+  lastMonthTxs.forEach(t => { lastCatSum[t.category] = (lastCatSum[t.category] || 0) + t.amount; });
+
+  // 전월 대비 증가액이 가장 큰 카테고리
+  const surgeList = Object.entries(thisCatSum).map(([cat, amount]) => {
+    const prev = lastCatSum[cat] || 0;
+    const diff = amount - prev;
+    const pct = prev > 0 ? (diff / prev) * 100 : (amount > 0 ? 100 : 0);
+    return { cat, amount, prev, diff, pct };
+  }).sort((a, b) => b.diff - a.diff);
+
+  const topSurge = surgeList.length > 0 && surgeList[0].diff > 0 
+    ? surgeList[0] 
+    : (surgeList[0] || { cat: '외식', amount: 0, prev: 0, diff: 0, pct: 0 });
+
+  // 3. 월별 추세 다이어그램 데이터 (선 그래프용)
+  const monthlyAmounts = months.map(m => {
+    const prefix = `${year}-${m}`;
+    const txs = transactions.filter(t => 
+      t.type === 'expense' && 
+      t.date.startsWith(prefix) && 
+      (selectedCat === 'all' || t.category === selectedCat)
+    );
+    return txs.reduce((s, t) => s + t.amount, 0);
+  });
+
+  // 데이터가 있는 마지막 월(1~12 중 실제 데이터가 존재하는 범위까지 계산)
+  const activeMonths = months.map((m, idx) => ({ month: `${parseInt(m)}월`, amount: monthlyAmounts[idx] }));
+  const maxVal = Math.max(...monthlyAmounts, 1);
+  const avgAmount = monthlyAmounts.filter(a => a > 0).length > 0 
+    ? Math.round(monthlyAmounts.filter(a => a > 0).reduce((a, b) => a + b, 0) / monthlyAmounts.filter(a => a > 0).length)
+    : 0;
+
+  // SVG 곡선 좌표 계산 (가로 320, 세로 120)
+  const chartWidth = 320;
+  const chartHeight = 110;
+  const paddingX = 15;
+  const stepX = (chartWidth - paddingX * 2) / (12 - 1);
+
+  const points = monthlyAmounts.map((amt, idx) => {
+    const x = paddingX + idx * stepX;
+    const y = chartHeight - (amt / maxVal) * (chartHeight - 20) - 10;
+    return { x, y, amt, month: `${idx + 1}월` };
+  });
+
+  // 부드러운 Bezier curve path 생성
+  let pathD = `M ${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const curr = points[i];
+    const next = points[i + 1];
+    const cpX = (curr.x + next.x) / 2;
+    pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+  }
+  const areaD = `${pathD} L ${points[points.length - 1].x},${chartHeight + 10} L ${points[0].x},${chartHeight + 10} Z`;
+
+  // 최신 활성 월 포인트
+  const currentMonthIdx = new Date().getMonth();
+  const currentPoint = points[currentMonthIdx] || points[points.length - 1];
+
+  // 4. 이번 달 TOP 3 카테고리
+  const top3Cats = Object.entries(thisCatSum)
+    .map(([cat, amount]) => {
+      const thisMonthTotal = thisMonthTxs.reduce((s, t) => s + t.amount, 0) || 1;
+      return { cat, amount, pct: (amount / thisMonthTotal) * 100 };
+    })
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3);
+
+  // 상위 자주 쓰는 카테고리 칩 목록
+  const chipCategories = ['all', '외식', '마트/편의점', '생활편의', '교통', '주거', '쇼핑/미용'];
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-[#f2f4f6] pb-24 animate-[fadeIn_0.3s_ease]">
+      {/* 헤더 */}
+      <div className="bg-white px-6 pt-8 pb-5 rounded-b-[36px] shadow-sm mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="text-[12px] font-bold text-[var(--primary)] uppercase tracking-wider mb-1">Smart Report</div>
+            <h1 className="text-[24px] font-black text-[#191f28] tracking-tight">지출 분석 리포트</h1>
+          </div>
+          <div className="flex items-center gap-1.5 text-[13px] font-extrabold text-[#4e5968] bg-[#f2f4f6] px-3.5 py-1.5 rounded-full">
+            <span>{year}년</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-6 space-y-4">
+        {/* 1. 토스식 팩폭 진단 카드 */}
+        <div className="bg-white rounded-[26px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100">
+          <div className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#f04452] bg-red-50 px-2.5 py-1 rounded-full mb-3">
+            <span>⚠️ 지출 주의보</span>
+          </div>
+
+          <h2 className="text-[21px] font-black text-[#191f28] leading-snug tracking-tight">
+            이번 달은 <span className="text-[var(--primary)]">{topSurge.cat}</span>을<br />
+            제일 줄이셔야 해요
+          </h2>
+
+          <p className="text-[13px] text-[#4e5968] mt-2 leading-relaxed">
+            {topSurge.diff > 0 ? (
+              <>
+                지난달보다 <b className="text-[#f04452] font-black">{fmt(topSurge.diff)}원</b> 더 썼어요.
+                {topSurge.pct > 0 && <span> (전월비 +{topSurge.pct.toFixed(0)}% 급증)</span>}
+              </>
+            ) : (
+              <>현재 지출 관리를 아주 알뜰하게 잘 유지하고 계십니다! 👏</>
+            )}
+          </p>
+
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] text-[#8b95a1] font-medium block">이번 달 {topSurge.cat} 지출</span>
+              <span className="text-[17px] font-black text-[#191f28]">{fmt(topSurge.amount)}원</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-[#8b95a1] font-medium block">전월 지출</span>
+              <span className="text-[13px] font-bold text-[#6b7684]">{fmt(topSurge.prev)}원</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. 연간 선 그래프(다이어그램) 카드 */}
+        <div className="bg-white rounded-[26px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <span className="text-[11px] font-extrabold text-[#8b95a1]">연간 지출 트렌드</span>
+              <h3 className="text-[17px] font-black text-[#191f28] mt-0.5 tracking-tight">월별 추세 다이어그램</h3>
+            </div>
+            <span className="text-[11px] text-[#3182f6] font-bold bg-blue-50 px-2.5 py-0.5 rounded-full">
+              {selectedCat === 'all' ? '전체 지출' : selectedCat}
+            </span>
+          </div>
+
+          {/* 카테고리 필터 칩 */}
+          <div className="flex gap-1.5 overflow-x-auto hide-scrollbar py-2 my-1 -mx-2 px-2">
+            {chipCategories.map(cat => {
+              const active = selectedCat === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCat(cat)}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-bold shrink-0 transition-all ${
+                    active ? 'bg-[#191f28] text-white shadow-sm' : 'bg-[#f2f4f6] text-[#6b7684] hover:bg-gray-200'
+                  }`}
+                >
+                  {cat === 'all' ? '전체' : cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* SVG 선 다이어그램 */}
+          <div className="relative w-full h-[170px] mt-3 select-none">
+            <svg viewBox={`0 0 ${chartWidth} ${chartHeight + 20}`} className="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="lineDiagramGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#3182f6" stop-opacity="0.25" />
+                  <stop offset="100%" stop-color="#3182f6" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* 가이드 라인 */}
+              <line x1={paddingX} y1={25} x2={chartWidth - paddingX} y2={25} stroke="#f2f4f6" strokeDasharray="3,3" strokeWidth="1" />
+              <line x1={paddingX} y1={60} x2={chartWidth - paddingX} y2={60} stroke="#f2f4f6" strokeDasharray="3,3" strokeWidth="1" />
+              <line x1={paddingX} y1={95} x2={chartWidth - paddingX} y2={95} stroke="#f2f4f6" strokeDasharray="3,3" strokeWidth="1" />
+
+              {/* 그라데이션 영역 */}
+              {maxVal > 0 && <path d={areaD} fill="url(#lineDiagramGrad)" />}
+
+              {/* 메인 곡선 */}
+              {maxVal > 0 && (
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="#3182f6"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="transition-all duration-500 ease-out"
+                />
+              )}
+
+              {/* 각 월 포인트 */}
+              {points.map((pt, idx) => (
+                <circle
+                  key={idx}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={idx === currentMonthIdx ? 5.5 : 3.5}
+                  fill={idx === currentMonthIdx ? '#f04452' : 'white'}
+                  stroke={idx === currentMonthIdx ? 'white' : '#3182f6'}
+                  strokeWidth={idx === currentMonthIdx ? 2.5 : 2}
+                />
+              ))}
+
+              {/* 현재 월 툴팁 */}
+              {currentPoint && currentPoint.amt > 0 && (
+                <g transform={`translate(${Math.min(Math.max(currentPoint.x - 30, 5), chartWidth - 65)}, ${Math.max(currentPoint.y - 28, 2)})`}>
+                  <rect width="60" height="20" rx="6" fill="#191f28" />
+                  <text x="30" y="14" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">
+                    {fmtShort(currentPoint.amt)}원
+                  </text>
+                </g>
+              )}
+            </svg>
+
+            {/* X축 월 라벨 */}
+            <div className="flex justify-between text-[10px] font-semibold text-[#8b95a1] pt-1 px-1">
+              {months.filter((_, i) => i % 2 === 0).map(m => (
+                <span key={m} className={m === String(currentMonthIdx + 1).padStart(2, '0') ? 'text-[#3182f6] font-bold' : ''}>
+                  {parseInt(m)}월
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 bg-[#f9fafb] p-3.5 rounded-2xl flex items-center justify-between text-[12px]">
+            <span className="text-[#6b7684] font-medium">연평균 월 지출</span>
+            <span className="font-black text-[#191f28]">{fmt(avgAmount)}원</span>
+          </div>
+        </div>
+
+        {/* 3. 이번 달 지출 TOP 3 */}
+        <div className="bg-white rounded-[26px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-[16px] font-black text-[#191f28] tracking-tight">이번 달 지출 TOP 3</h3>
+            <span className="text-[11px] font-semibold text-[#8b95a1]">전체 대비 비중</span>
+          </div>
+
+          <div className="space-y-4">
+            {top3Cats.map((item, idx) => {
+              const badgeColors = ['bg-red-50 text-[#f04452]', 'bg-blue-50 text-[#3182f6]', 'bg-gray-100 text-[#4e5968]'];
+              const barColors = ['bg-[#f04452]', 'bg-[#3182f6]', 'bg-[#8b95a1]'];
+
+              return (
+                <div key={item.cat}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-5 h-5 rounded-full font-black text-[11px] flex items-center justify-center ${badgeColors[idx]}`}>
+                        {idx + 1}
+                      </span>
+                      <span className="text-[14px] font-extrabold text-[#191f28]">{item.cat}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[14px] font-black text-[#191f28]">{fmt(item.amount)}원</span>
+                      <span className="text-[11px] text-[#8b95a1] font-bold ml-1.5">({item.pct.toFixed(1)}%)</span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-[#f2f4f6] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${barColors[idx]}`}
+                      style={{ width: `${Math.min(item.pct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {top3Cats.length === 0 && <div className="text-center py-4 text-gray-400 text-xs">내역이 없습니다.</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FixedScreen({ items, onItemsChange, onApply, showAddFixed, onCloseAddFixed }: { 
   items: any[], 
   onItemsChange: (items: any[]) => void,
