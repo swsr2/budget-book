@@ -80,7 +80,7 @@ export async function parseExcel(file: File): Promise<Omit<Transaction, 'id'>[]>
     const rawCat = row['카테고리'] || row['항목'] || row['category'] || '기타';
     const rawMemo = row['내용'] || row['사용처'] || row['상호'] || row['가맹점명'] || row['memo'];
     const rawPayment = row['결제수단'] || row['결제'] || row['수단'] || row['payment'] || '신용카드';
-    const rawWho = row['주체'] || row['사용자'] || row['누구'] || row['who'] || '남편';
+    const rawWho = row['주체'] || row['사용자'] || row['누구'] || row['who'] || '공용';
     
     const typeVar = (String(rawType).includes('수입') || String(rawType).includes('입금')) ? 'income' : 
                     (String(rawType).includes('이체') || String(rawType).includes('송금')) ? 'transfer' : 'expense';
